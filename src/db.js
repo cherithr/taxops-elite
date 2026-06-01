@@ -19,8 +19,10 @@ export const COLS = {
 // ─── REAL-TIME LISTENER (returns unsubscribe fn) ────────────────────────────
 export const subscribe = (colName, setState, orderField = "createdAt") => {
   const q = query(collection(db, colName), orderBy(orderField, "asc"));
-  return onSnapshot(q, snap =>
-    setState(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+  return onSnapshot(
+    q,
+    snap => setState(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    err  => console.error(`[subscribe:${colName}]`, err.code, err.message) // ← ADD THIS
   );
 };
 
