@@ -23,12 +23,12 @@ const T = {
 
 // ─── SEED DATA ───────────────────────────────────────────────────────────────
 const SEED_PROJECTS = [
-  { client:"Meridian Energy Corp",    engagement:"SUT Reverse Audit FY2023",      type:"Reverse Audit",       tax:"Sales & Use Tax", states:["TX","LA","OK","NM"],       exposure:2840000, refund:1120000, risk:"High",     priority:"Critical", status:"In Progress",        health:72, manager:"Sarah Chen",  partner:"Robert Mills", due:"2024-03-15", tasks:24, open:9,  billingType:"Fixed Fee",   period:"2020-2023" },
-  { client:"StellarNet Logistics",    engagement:"Multi-State Nexus Study",        type:"Nexus Study",         tax:"Sales & Use Tax", states:["CA","WA","OR","NV","AZ"], exposure:4200000, refund:0,       risk:"Critical", priority:"Critical", status:"Review Phase",       health:88, manager:"James Park",  partner:"Diana Foster", due:"2024-02-28", tasks:18, open:3,  billingType:"Hourly",      period:"2021-2024" },
-  { client:"Ozark Resources LLC",     engagement:"Severance Tax Refund 2019-2022", type:"Refund Review",       tax:"Severance Tax",   states:["AR","OK","TX"],           exposure:890000,  refund:670000,  risk:"Medium",   priority:"High",     status:"Waiting for Client", health:45, manager:"Laura Kim",   partner:"Robert Mills", due:"2024-04-10", tasks:15, open:11, billingType:"Contingency", period:"2019-2022" },
-  { client:"BlueRidge Manufacturing", engagement:"TX Audit Defense 2021",          type:"Audit Defense",       tax:"Sales & Use Tax", states:["TX"],                     exposure:3100000, refund:0,       risk:"Critical", priority:"Critical", status:"Escalated",          health:31, manager:"Sarah Chen",  partner:"Diana Foster", due:"2024-02-10", tasks:32, open:18, billingType:"Fixed Fee",   period:"2021"      },
-  { client:"Pinnacle Retail Group",   engagement:"Taxability Research — SaaS",     type:"Taxability Research", tax:"Sales & Use Tax", states:["NY","NJ","CT","MA","PA"], exposure:560000,  refund:0,       risk:"Low",      priority:"Medium",   status:"Planning",           health:95, manager:"James Park",  partner:"Robert Mills", due:"2024-05-20", tasks:12, open:10, billingType:"Hourly",      period:"2023-2024" },
-  { client:"Cascade Oil & Gas",       engagement:"Severance Audit Defense WY",     type:"Audit Defense",       tax:"Severance Tax",   states:["WY","ND"],                exposure:7800000, refund:0,       risk:"Critical", priority:"Critical", status:"In Progress",        health:58, manager:"Laura Kim",   partner:"Diana Foster", due:"2024-03-01", tasks:40, open:14, billingType:"Fixed Fee",   period:"2018-2022" },
+  { client:"Meridian Energy Corp",    engagement:"SUT Reverse Audit FY2023",      type:"Reverse Audit",       tax:"Sales & Use Tax", states:["TX","LA","OK","NM"],       exposure:2840000, refund:1120000, risk:"High",     priority:"Critical", status:"In Progress",        health:72, leadStaff:"Sarah Chen",  assignedTeam:["Sarah Chen","Alex Torres"],  due:"2024-03-15", tasks:24, open:9,  billingType:"Fixed Fee",   period:"2020-2023" },
+  { client:"StellarNet Logistics",    engagement:"Multi-State Nexus Study",        type:"Nexus Study",         tax:"Sales & Use Tax", states:["CA","WA","OR","NV","AZ"], exposure:4200000, refund:0,       risk:"Critical", priority:"Critical", status:"Review Phase",       health:88, leadStaff:"James Park",  assignedTeam:["James Park","Priya Nair"],   due:"2024-02-28", tasks:18, open:3,  billingType:"Hourly",      period:"2021-2024" },
+  { client:"Ozark Resources LLC",     engagement:"Severance Tax Refund 2019-2022", type:"Refund Review",       tax:"Severance Tax",   states:["AR","OK","TX"],           exposure:890000,  refund:670000,  risk:"Medium",   priority:"High",     status:"Waiting for Client", health:45, leadStaff:"Laura Kim",   assignedTeam:["Laura Kim","Marcus Lee"],    due:"2024-04-10", tasks:15, open:11, billingType:"Contingency", period:"2019-2022" },
+  { client:"BlueRidge Manufacturing", engagement:"TX Audit Defense 2021",          type:"Audit Defense",       tax:"Sales & Use Tax", states:["TX"],                     exposure:3100000, refund:0,       risk:"Critical", priority:"Critical", status:"Escalated",          health:31, leadStaff:"Sarah Chen",  assignedTeam:["Sarah Chen","Alex Torres","Marcus Lee"], due:"2024-02-10", tasks:32, open:18, billingType:"Fixed Fee",   period:"2021"      },
+  { client:"Pinnacle Retail Group",   engagement:"Taxability Research — SaaS",     type:"Taxability Research", tax:"Sales & Use Tax", states:["NY","NJ","CT","MA","PA"], exposure:560000,  refund:0,       risk:"Low",      priority:"Medium",   status:"Planning",           health:95, leadStaff:"James Park",  assignedTeam:["James Park","Priya Nair"],   due:"2024-05-20", tasks:12, open:10, billingType:"Hourly",      period:"2023-2024" },
+  { client:"Cascade Oil & Gas",       engagement:"Severance Audit Defense WY",     type:"Audit Defense",       tax:"Severance Tax",   states:["WY","ND"],                exposure:7800000, refund:0,       risk:"Critical", priority:"Critical", status:"In Progress",        health:58, leadStaff:"Laura Kim",   assignedTeam:["Laura Kim","Alex Torres"],   due:"2024-03-01", tasks:40, open:14, billingType:"Fixed Fee",   period:"2018-2022" },
 ];
 const SEED_TASKS = [
   { title:"Prepare TX Audit IDR Response — Batch 3",      project:"BlueRidge Manufacturing", priority:"Critical", status:"In Progress",        due:"2024-02-08", assignee:"Alex Torres", hours:8,  estimate:12 },
@@ -80,12 +80,33 @@ const NAV_ITEMS = [
   { id:"reports",   icon:"▤", label:"Reports"          },
   { id:"copilot",   icon:"✦", label:"Tax Copilot AI"   },
 ];
+// ─── CONFIGURABLE LISTS (edit these to add/remove options) ──────────────────
+const PROJECT_TYPES = [
+  "Reverse Audit","Nexus Study","Refund Review","Audit Defense",
+  "Taxability Research","Compliance Review","VDA / Voluntary Disclosure",
+  "Tax Planning","Due Diligence","Other",
+];
+const TAX_TYPES = [
+  "Sales & Use Tax","Severance Tax","Excise Tax","Property Tax",
+  "Payroll Tax","Corporate Income Tax","Franchise Tax",
+  "Gross Receipts Tax","Cannabis Tax","Other",
+];
+const PROJECT_STATUSES = [
+  "Planning","In Progress","Review Phase","Waiting for Client",
+  "Escalated","On Hold","Filed","Responded","Closed",
+];
+const TEAM_POSITIONS = [
+  "Partner","Senior Manager","Manager","Senior","Staff","Intern","Contractor",
+];
+const TEAM_COLORS = [
+  "#3B82F6","#8B5CF6","#10B981","#06B6D4","#F59E0B","#EF4444","#E879F9","#F97316",
+];
 const TASK_COLS    = ["Planning","In Progress","Review Phase","Waiting for Client","Filed"];
 const RISK_COLORS  = { Critical:T.crimson, High:T.amber, Medium:T.blue, Low:T.emerald };
 const STATUS_COLS  = {
-  "In Progress":T.blue, "Review Phase":T.violet, "Escalated":T.crimson,
-  "Waiting for Client":T.amber, "Filed":T.emerald, "Closed":T.text3,
-  "Planning":T.cyan, "On Hold":T.text3, "Responded":T.emerald,
+  "Planning":T.cyan, "In Progress":T.blue, "Review Phase":T.violet,
+  "Waiting for Client":T.amber, "Escalated":T.crimson, "On Hold":T.text3,
+  "Filed":T.emerald, "Responded":T.emerald, "Closed":T.text3,
 };
 const RESEARCH_TYPE_COLOR = {
   "Official Ruling":T.emerald, "Internal Memo":T.blue,
@@ -290,29 +311,47 @@ const Field = ({ label, children }) => (
 const PROJECT_DEFAULTS = {
   client:"", engagement:"", type:"Reverse Audit", tax:"Sales & Use Tax",
   states:[], exposure:0, refund:0, risk:"Medium", priority:"Medium",
-  status:"Planning", health:50, manager:"", partner:"", due:"",
+  status:"Planning", health:50,
+  leadStaff:"",           // renamed from "manager"
+  assignedTeam:[],        // replaces single "partner" — array of names
+  due:"",
   tasks:0, open:0, billingType:"Fixed Fee", period:"",
 };
 const ProjectModal = ({ initial, onClose, teamMembers }) => {
-  const [form, setForm] = useState({ ...PROJECT_DEFAULTS, ...initial });
+  const [form, setForm]   = useState({
+    ...PROJECT_DEFAULTS,
+    ...initial,
+    assignedTeam: initial?.assignedTeam || [],
+  });
   const [saving, setSaving] = useState(false);
   const set = (k,v) => setForm(p=>({...p,[k]:v}));
+
+  // multi-select team toggle
+  const toggleTeam = (name) => {
+    set("assignedTeam",
+      form.assignedTeam.includes(name)
+        ? form.assignedTeam.filter(n=>n!==name)
+        : [...form.assignedTeam, name]
+    );
+  };
+
   const save = async () => {
     if (!form.client.trim()) return;
     setSaving(true);
     const data = { ...form,
-      exposure: Number(form.exposure)||0,
-      refund:   Number(form.refund)||0,
-      health:   Number(form.health)||50,
-      states:   typeof form.states==="string"
+      exposure:     Number(form.exposure)||0,
+      refund:       Number(form.refund)||0,
+      health:       Number(form.health)||50,
+      states:       typeof form.states==="string"
         ? form.states.split(",").map(s=>s.trim()).filter(Boolean) : form.states,
+      assignedTeam: form.assignedTeam,
     };
     if (form.id) await updateDocById(COLS.projects, form.id, data);
     else         await createDoc(COLS.projects, data);
     setSaving(false);
     onClose();
   };
-  const managers = teamMembers.map(m=>m.name);
+
   return (
     <Modal title={form.id?"Edit Project":"New Project"} onClose={onClose} onSave={save} saving={saving}>
       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
@@ -329,14 +368,14 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
         <input style={inputStyle()} value={form.engagement} onChange={e=>set("engagement",e.target.value)} placeholder="e.g. TX Audit Defense 2023" />
       </Field>
       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
-        <Field label="Type">
+        <Field label="Project Type">
           <select style={inputStyle()} value={form.type} onChange={e=>set("type",e.target.value)}>
-            {["Reverse Audit","Nexus Study","Refund Review","Audit Defense","Taxability Research"].map(o=><option key={o}>{o}</option>)}
+            {PROJECT_TYPES.map(o=><option key={o}>{o}</option>)}
           </select>
         </Field>
         <Field label="Tax Type">
           <select style={inputStyle()} value={form.tax} onChange={e=>set("tax",e.target.value)}>
-            {["Sales & Use Tax","Severance Tax","Excise Tax","Other"].map(o=><option key={o}>{o}</option>)}
+            {TAX_TYPES.map(o=><option key={o}>{o}</option>)}
           </select>
         </Field>
         <Field label="Risk">
@@ -351,10 +390,10 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
         </Field>
         <Field label="Status">
           <select style={inputStyle()} value={form.status} onChange={e=>set("status",e.target.value)}>
-            {["Planning","In Progress","Review Phase","Waiting for Client","Escalated","Closed"].map(o=><option key={o}>{o}</option>)}
+            {PROJECT_STATUSES.map(o=><option key={o}>{o}</option>)}
           </select>
         </Field>
-        <Field label="Health (0-100)">
+        <Field label="Health (0–100)">
           <input style={inputStyle()} type="number" min="0" max="100" value={form.health} onChange={e=>set("health",e.target.value)} />
         </Field>
         <Field label="Exposure ($)">
@@ -369,16 +408,48 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
         <Field label="Period">
           <input style={inputStyle()} value={form.period} onChange={e=>set("period",e.target.value)} placeholder="e.g. 2021-2023" />
         </Field>
-        <Field label="Manager">
-          <select style={inputStyle()} value={form.manager} onChange={e=>set("manager",e.target.value)}>
-            <option value="">Select…</option>
-            {managers.map(m=><option key={m}>{m}</option>)}
-          </select>
-        </Field>
-        <Field label="Partner">
-          <input style={inputStyle()} value={form.partner} onChange={e=>set("partner",e.target.value)} />
-        </Field>
       </div>
+
+      {/* ── Lead Staff (renamed from Manager) ── */}
+      <Field label="Lead Staff">
+        <select style={inputStyle()} value={form.leadStaff} onChange={e=>set("leadStaff",e.target.value)}>
+          <option value="">Select lead…</option>
+          {teamMembers.map(m=><option key={m.id||m.name} value={m.name}>{m.name} — {m.role}</option>)}
+        </select>
+      </Field>
+
+      {/* ── Assigned Team (multi-select) ── */}
+      <Field label="Assigned Team (select multiple)">
+        <div style={{ display:"flex",flexWrap:"wrap",gap:6,padding:"8px",
+          background:T.bg3,borderRadius:8,border:`1px solid ${T.border}`,minHeight:44 }}>
+          {teamMembers.length === 0 && (
+            <span style={{ fontSize:12,color:T.text3 }}>No team members yet — add staff first</span>
+          )}
+          {teamMembers.map(m => {
+            const selected = form.assignedTeam.includes(m.name);
+            return (
+              <button key={m.id||m.name} type="button"
+                onClick={()=>toggleTeam(m.name)}
+                style={{
+                  padding:"4px 10px",borderRadius:6,fontSize:12,cursor:"pointer",
+                  fontFamily:"inherit",transition:"all 0.15s",
+                  background: selected ? T.blue : T.bg4,
+                  color:      selected ? "#fff"  : T.text2,
+                  border:     `1px solid ${selected ? T.blue : T.border}`,
+                  fontWeight: selected ? 600 : 400,
+                }}>
+                {selected ? "✓ " : ""}{m.name}
+              </button>
+            );
+          })}
+        </div>
+        {form.assignedTeam.length > 0 && (
+          <div style={{ marginTop:4,fontSize:11,color:T.text3 }}>
+            {form.assignedTeam.length} member{form.assignedTeam.length>1?"s":""} assigned: {form.assignedTeam.join(", ")}
+          </div>
+        )}
+      </Field>
+
       <Field label="States (comma-separated)">
         <input style={inputStyle()} value={Array.isArray(form.states)?form.states.join(", "):form.states}
           onChange={e=>set("states",e.target.value)} placeholder="TX, CA, NY" />
@@ -1050,7 +1121,11 @@ const ProjectsView = ({ projects, team, onEdit, onDelete }) => {
             <div style={{ display:"flex",justifyContent:"space-between",
               marginTop:12,paddingTop:12,borderTop:`1px solid ${T.border}` }}>
               <div style={{ display:"flex",gap:14 }}>
-                <span style={{ fontSize:11,color:T.text3 }}>👤 {p.manager}</span>
+                <span style={{ fontSize:11,color:T.text3 }}>
+                  👤 {p.leadStaff || p.manager || "—"}
+                  {(p.assignedTeam||[]).length > 0 &&
+                    <span style={{ color:T.blue,marginLeft:4 }}>+{(p.assignedTeam||[]).length}</span>}
+                </span>
                 <span style={{ fontSize:11,color:T.text3 }}>{p.tasks||0} tasks</span>
                 <span style={{ fontSize:11,color:(p.open||0)>10?T.amber:T.text3 }}>{p.open||0} open</span>
               </div>
@@ -1428,11 +1503,92 @@ const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
 };
 
 // ─── TEAM VIEW ────────────────────────────────────────────────────────────────
-const TeamView = ({ team }) => (
+// ─── TEAM MODAL ──────────────────────────────────────────────────────────────
+const TEAM_DEFAULTS = {
+  name:"", role:"Staff", avatar:"", color:TEAM_COLORS[0],
+  projects:0, utilization:0, expertise:[], status:"active",
+};
+const TeamModal = ({ initial, onClose }) => {
+  const [form, setSaving2] = useState({ ...TEAM_DEFAULTS, ...initial,
+    expertise: initial?.expertise || [] });
+  const [saving, setSaving] = useState(false);
+  const set = (k,v) => setSaving2(p=>({...p,[k]:v}));
+
+  const save = async () => {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    const initials = form.name.split(" ").map(w=>w[0]||"").join("").toUpperCase().slice(0,2);
+    const data = {
+      ...form,
+      avatar:     initials,
+      projects:   Number(form.projects)||0,
+      utilization:Number(form.utilization)||0,
+      expertise:  typeof form.expertise==="string"
+        ? form.expertise.split(",").map(s=>s.trim()).filter(Boolean) : form.expertise,
+    };
+    if (form.id) await updateDocById(COLS.team, form.id, data);
+    else         await createDoc(COLS.team, data);
+    setSaving(false);
+    onClose();
+  };
+
+  return (
+    <Modal title={form.id?"Edit Team Member":"Add Team Member"} onClose={onClose} onSave={save} saving={saving}>
+      <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
+        <Field label="Full Name">
+          <input style={inputStyle()} value={form.name} onChange={e=>set("name",e.target.value)} placeholder="e.g. Jane Smith" />
+        </Field>
+        <Field label="Position / Role">
+          <select style={inputStyle()} value={form.role} onChange={e=>set("role",e.target.value)}>
+            {TEAM_POSITIONS.map(p=><option key={p}>{p}</option>)}
+          </select>
+        </Field>
+        <Field label="Utilization (%)">
+          <input style={inputStyle()} type="number" min="0" max="100" value={form.utilization}
+            onChange={e=>set("utilization",e.target.value)} />
+        </Field>
+        <Field label="Active Projects">
+          <input style={inputStyle()} type="number" min="0" value={form.projects}
+            onChange={e=>set("projects",e.target.value)} />
+        </Field>
+        <Field label="Status">
+          <select style={inputStyle()} value={form.status} onChange={e=>set("status",e.target.value)}>
+            <option value="active">Active</option>
+            <option value="at-risk">Overloaded / At-Risk</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </Field>
+        <Field label="Avatar Color">
+          <div style={{ display:"flex",gap:6,flexWrap:"wrap",paddingTop:4 }}>
+            {TEAM_COLORS.map(c=>(
+              <button key={c} type="button" onClick={()=>set("color",c)}
+                style={{ width:26,height:26,borderRadius:"50%",background:c,border:`3px solid ${form.color===c?"#fff":"transparent"}`,cursor:"pointer" }} />
+            ))}
+          </div>
+        </Field>
+      </div>
+      <Field label="State Expertise (comma-separated)">
+        <input style={inputStyle()}
+          value={Array.isArray(form.expertise)?form.expertise.join(", "):form.expertise}
+          onChange={e=>set("expertise",e.target.value)} placeholder="TX, CA, NY" />
+      </Field>
+    </Modal>
+  );
+};
+
+const TeamView = ({ team, onAdd, onEdit, onDelete }) => {
+  return (
   <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%",
     display:"flex",flexDirection:"column",gap:20 }}>
-    <SectionHeader title="Team & Workload"
-      sub="Utilization · Assignment matrix · Capacity planning" />
+    <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+      <SectionHeader title="Team & Workload"
+        sub="Utilization · Assignment matrix · Capacity planning" />
+      <button className="btn-primary"
+        onClick={onAdd}
+        style={{ padding:"8px 16px",borderRadius:8,fontSize:12,display:"flex",alignItems:"center",gap:6 }}>
+        ⊕ Add Member
+      </button>
+    </div>
     <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14 }}>
       {team.map((m,i)=>(
         <div key={m.id} className="card hover-lift fadeUp"
@@ -1445,11 +1601,11 @@ const TeamView = ({ team }) => (
               <div style={{ fontSize:11,color:T.text3 }}>{m.role}</div>
               <div style={{ marginTop:4 }}>
                 <span className="tag" style={{
-                  background:m.status==="at-risk"?`${T.crimson}18`:`${T.emerald}18`,
-                  color:m.status==="at-risk"?T.crimson:T.emerald,
-                  border:`1px solid ${m.status==="at-risk"?T.crimson:T.emerald}30`,
+                  background:m.status==="at-risk"?`${T.crimson}18`:m.status==="inactive"?`${T.text3}18`:`${T.emerald}18`,
+                  color:m.status==="at-risk"?T.crimson:m.status==="inactive"?T.text3:T.emerald,
+                  border:`1px solid ${m.status==="at-risk"?T.crimson:m.status==="inactive"?T.text3:T.emerald}30`,
                   fontSize:10 }}>
-                  {m.status==="at-risk"?"⚠ Overloaded":"● Active"}
+                  {m.status==="at-risk"?"⚠ Overloaded":m.status==="inactive"?"◌ Inactive":"● Active"}
                 </span>
               </div>
             </div>
@@ -1478,18 +1634,29 @@ const TeamView = ({ team }) => (
             </div>
           </div>
           <div style={{ marginTop:14,paddingTop:14,borderTop:`1px solid ${T.border}`,display:"flex",gap:8 }}>
-            <button className="btn-ghost" style={{ flex:1,fontSize:11,padding:"6px",borderRadius:7 }}>
-              View Profile
-            </button>
-            <button className="btn-ghost" style={{ flex:1,fontSize:11,padding:"6px",borderRadius:7 }}>
-              Assign Task
-            </button>
+            <button className="btn-ghost"
+              style={{ flex:1,fontSize:11,padding:"6px",borderRadius:7 }}
+              onClick={()=>onEdit(m)}>✎ Edit</button>
+            <button className="btn-ghost"
+              style={{ flex:1,fontSize:11,padding:"6px",borderRadius:7,
+                borderColor:`${T.crimson}40`,color:T.crimson }}
+              onClick={()=>onDelete(m.id)}>✕ Remove</button>
           </div>
         </div>
       ))}
+      {/* Empty state */}
+      {team.length === 0 && (
+        <div style={{ gridColumn:"1/-1",textAlign:"center",padding:"60px 0",color:T.text3 }}>
+          <div style={{ fontSize:32,marginBottom:12 }}>◈</div>
+          <div style={{ fontSize:14,marginBottom:8 }}>No team members yet</div>
+          <button className="btn-primary" onClick={onAdd}
+            style={{ padding:"8px 20px",borderRadius:8,fontSize:13 }}>Add First Member</button>
+        </div>
+      )}
     </div>
   </div>
-);
+  );
+};
 
 // ─── RESEARCH VIEW ────────────────────────────────────────────────────────────
 const ResearchView = () => {
@@ -1727,6 +1894,7 @@ export default function App() {
   const [auditModal,   setAuditModal]   = useState(null);
   const [stateModal,   setStateModal]   = useState(null);
   const [refundModal,  setRefundModal]  = useState(null);
+  const [teamModal,    setTeamModal]    = useState(null); // null | {} | existing member
 
   // ── Auth listener + seed ─────────────────────────────────────────────────
   useEffect(() => {
@@ -1789,6 +1957,7 @@ export default function App() {
   const deleteState   = useCallback((id)=>{ if(window.confirm("Delete this state?"))   deleteDocById(COLS.states,id);   },[]);
   const deleteAudit   = useCallback((id)=>{ if(window.confirm("Delete this audit?"))   deleteDocById(COLS.audits,id);   },[]);
   const deleteRefund  = useCallback((id)=>{ if(window.confirm("Delete this refund?"))  deleteDocById(COLS.refunds,id);  },[]);
+  const deleteTeam    = useCallback((id)=>{ if(window.confirm("Remove this team member?")) deleteDocById(COLS.team,id); },[]);
 
   // ── FAB / header new-item routing ─────────────────────────────────────────
   const handleNew = useCallback(()=>{
@@ -1798,6 +1967,7 @@ export default function App() {
       states:   ()=>setStateModal({}),
       audits:   ()=>setAuditModal({}),
       refunds:  ()=>setRefundModal({}),
+      team:     ()=>setTeamModal({}),
     };
     (map[activeView]??map.projects)();
   },[activeView]);
@@ -1847,7 +2017,13 @@ export default function App() {
           onEdit={r=>setRefundModal(r)}
           onDelete={deleteRefund} />
       );
-      case "team":     return <TeamView     team={team} />;
+      case "team": return (
+        <TeamView
+          team={team}
+          onAdd={()=>setTeamModal({})}
+          onEdit={m=>setTeamModal(m)}
+          onDelete={deleteTeam} />
+      );
       case "research": return <ResearchView />;
       case "reports":  return <ReportsView  />;
       case "copilot":  return <CopilotView  />;
@@ -1860,7 +2036,7 @@ export default function App() {
       );
     }
   },[activeView,navigate,projects,tasks,team,states,audits,refunds,
-     deleteProject,deleteTask,deleteState,deleteAudit,deleteRefund]);
+     deleteProject,deleteTask,deleteState,deleteAudit,deleteRefund,deleteTeam]);
 
   // ── Sign-out handler ─────────────────────────────────────────────────────
   const handleSignOut = useCallback(() => signOut(auth), []);
@@ -1938,6 +2114,11 @@ export default function App() {
           initial={refundModal}
           projects={projects}
           onClose={()=>setRefundModal(null)} />
+      )}
+      {teamModal !== null && (
+        <TeamModal
+          initial={teamModal}
+          onClose={()=>setTeamModal(null)} />
       )}
 
       <CommandPalette
