@@ -70,15 +70,21 @@ const SuccessBanner = ({ msg }) =>
 // ─── FRIENDLY FIREBASE ERROR MESSAGES ────────────────────────────────────────
 const friendlyError = (code) => {
   const map = {
-    "auth/user-not-found":       "No account found with that email.",
-    "auth/wrong-password":       "Incorrect password. Please try again.",
-    "auth/invalid-email":        "Please enter a valid email address.",
+    "auth/user-not-found": "No account found with that email.",
+    "auth/wrong-password": "Incorrect password. Please try again.",
+    "auth/invalid-email": "Please enter a valid email address.",
     "auth/email-already-in-use": "An account with this email already exists.",
-    "auth/weak-password":        "Password must be at least 6 characters.",
-    "auth/too-many-requests":    "Too many attempts. Please wait a moment and try again.",
-    "auth/network-request-failed":"Network error. Check your connection.",
-    "auth/invalid-credential":   "Invalid email or password.",
+    "auth/weak-password": "Password must be at least 6 characters.",
+    "auth/too-many-requests":
+      "Too many attempts. Please wait a moment and try again.",
+    "auth/network-request-failed":
+      "Network error. Check your connection.",
+    "auth/invalid-credential":
+      "Invalid email or password.",
+    "auth/invalid-login-credentials":
+      "Invalid email or password.",
   };
+
   return map[code] || "Something went wrong. Please try again.";
 };
 
@@ -96,6 +102,7 @@ export default function AuthScreen() {
 
   const switchMode = (next) => {
     setMode(next);
+    setEmail("");
     setPassword("");
     setConfirm("");
     clearMessages();
@@ -103,51 +110,111 @@ export default function AuthScreen() {
 
   // ── Sign In ────────────────────────────────────────────────────────────────
   const handleSignIn = async (e) => {
-    e.preventDefault();
-    clearMessages();
-    if (!email || !password) { setError("Please fill in all fields."); return; }
-    setLoading(true);
-    try {
-      await signInWithEmailAndPassword(auth, email.trim(), password);
-    } catch (err) {
-      setError(friendlyError(err.code));
-    } finally {
-      setLoading(false);
-    }
-  };
+  e.preventDefault();
+
+  if (loading) return;
+
+  clearMessages();
+
+  if (!email.trim() || !password.trim()) {
+    setError("Please fill in all fields.");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    await signInWithEmailAndPassword(
+      auth,
+      email.trim(),
+      password
+    );
+  } catch (err) {
+    setError(friendlyError(err.code));
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ── Sign Up ────────────────────────────────────────────────────────────────
-  const handleSignUp = async (e) => {
-    e.preventDefault();
-    clearMessages();
-    if (!email || !password || !confirm) { setError("Please fill in all fields."); return; }
-    if (password !== confirm)            { setError("Passwords do not match.");     return; }
-    if (password.length < 6)             { setError("Password must be at least 6 characters."); return; }
-    setLoading(true);
-    try {
-      await createUserWithEmailAndPassword(auth, email.trim(), password);
-    } catch (err) {
-      setError(friendlyError(err.code));
-    } finally {
-      setLoading(false);
-    }
-  };
+ const handleSignUp = async (e) => {
+  e.preventDefault();
+
+  if (loading) return;
+
+  clearMessages();
+
+  if (
+    !email.trim() ||
+    !password.trim() ||
+    !confirm.trim()
+  ) {
+    setError("Please fill in all fields.");
+    return;
+  }
+
+  if (password !== confirm) {
+    setError("Passwords do not match.");
+    return;
+  }
+
+  if (password.length < 6) {
+    setError("Password must be at least 6 characters.");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    await createUserWithEmailAndPassword(
+      auth,
+      email.trim(),
+      password
+    );
+
+    setSuccess(
+      "Account created successfully. You can now sign in."
+    );
+
+    setPassword("");
+    setConfirm("");
+  } catch (err) {
+    setError(friendlyError(err.code));
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ── Password Reset ─────────────────────────────────────────────────────────
-  const handleReset = async (e) => {
-    e.preventDefault();
-    clearMessages();
-    if (!email) { setError("Please enter your email address."); return; }
-    setLoading(true);
-    try {
-      await sendPasswordResetEmail(auth, email.trim());
-      setSuccess("Reset link sent! Check your inbox.");
-    } catch (err) {
-      setError(friendlyError(err.code));
-    } finally {
-      setLoading(false);
-    }
-  };
+ const handleReset = async (e) => {
+  e.preventDefault();
+
+  if (loading) return;
+
+  clearMessages();
+
+  if (!email.trim()) {
+    setError("Please enter your email address.");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    await sendPasswordResetEmail(
+      auth,
+      email.trim()
+    );
+
+    setSuccess(
+      "Reset link sent! Check your inbox."
+    );
+  } catch (err) {
+    setError(friendlyError(err.code));
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ── Submit router ──────────────────────────────────────────────────────────
   const handleSubmit = mode === MODE.SIGN_IN ? handleSignIn
