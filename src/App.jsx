@@ -1,3 +1,5 @@
+import { auth } from "./firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import React, {
   useState, useEffect, useCallback, useRef, useMemo,
 } from "react";
@@ -1709,9 +1711,13 @@ export default function App() {
   const [stateModal,   setStateModal]   = useState(null);
   const [refundModal,  setRefundModal]  = useState(null);
 
-  // ── Seed once then subscribe ──────────────────────────────────────────────
-  useEffect(()=>{
-    (async()=>{
+  // ── Seed once then subscribe — wait for auth to be confirmed first ──────────────────────────────────────────────
+ useEffect(() => {
+  // Wait for Firebase Auth to confirm the user before touching Firestore
+  const unsubAuth = onAuthStateChanged(auth, (user) => {
+    if (!user) return; // Not logged in — do nothing
+
+    (async () => {
       await Promise.all([
         seedCollection(COLS.projects, SEED_PROJECTS),
         seedCollection(COLS.tasks,    SEED_TASKS),
@@ -1722,7 +1728,10 @@ export default function App() {
       ]);
       setSeeded(true);
     })();
-  },[]);
+  });
+
+  return () => unsubAuth(); // cleanup auth listener on unmount
+}, []);
 
   useEffect(()=>{
     if(!seeded) return;
