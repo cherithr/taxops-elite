@@ -1,5 +1,6 @@
 import { auth } from "./firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import AuthScreen from "./Auth";
 import React, {
   useState, useEffect, useCallback, useRef, useMemo,
 } from "react";
@@ -767,8 +768,9 @@ const NotifButton = ({ icon, tip, badge }) => {
     </div>
   );
 };
-const TopBar = ({ onCommand, activeView }) => {
+const TopBar = ({ onCommand, activeView, onSignOut }) => {
   const [hovered, setHovered] = useState(false);
+  const [soHov,   setSoHov]   = useState(false);
   const label = NAV_ITEMS.find(n=>n.id===activeView)?.label || "TaxOps Elite";
   return (
     <div style={{ height:52,background:T.bg1,borderBottom:`1px solid ${T.border}`,
@@ -792,6 +794,17 @@ const TopBar = ({ onCommand, activeView }) => {
           background:`linear-gradient(135deg,${T.violet},${T.blue})`,
           display:"flex",alignItems:"center",justifyContent:"center",
           fontSize:12,fontWeight:700,cursor:"pointer" }}>YA</div>
+        <button
+          onClick={onSignOut}
+          onMouseEnter={()=>setSoHov(true)}
+          onMouseLeave={()=>setSoHov(false)}
+          title="Sign out"
+          style={{ background:"none",border:`1px solid ${soHov?T.borderHover:T.border}`,
+            borderRadius:8,padding:"5px 10px",cursor:"pointer",
+            color:soHov?T.crimson:T.text3,fontSize:11,fontFamily:"inherit",
+            transition:"all 0.15s",letterSpacing:"0.02em" }}>
+          Sign Out
+        </button>
       </div>
     </div>
   );
@@ -1690,6 +1703,10 @@ const CopilotView = () => {
 
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 export default function App() {
+  // ── Auth gate ─────────────────────────────────────────────────────────────
+  const [authUser,    setAuthUser]    = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
   // ── Firestore live state ──────────────────────────────────────────────────
   const [projects, setProjects] = useState([]);
   const [tasks,    setTasks]    = useState([]);
@@ -1711,27 +1728,32 @@ export default function App() {
   const [stateModal,   setStateModal]   = useState(null);
   const [refundModal,  setRefundModal]  = useState(null);
 
-  // ── Seed once then subscribe — wait for auth to be confirmed first ──────────────────────────────────────────────
- useEffect(() => {
-  // Wait for Firebase Auth to confirm the user before touching Firestore
-  const unsubAuth = onAuthStateChanged(auth, (user) => {
-    if (!user) return; // Not logged in — do nothing
+  // ── Auth listener + seed ─────────────────────────────────────────────────
+  useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      setAuthUser(user);
+      setAuthChecked(true); // Firebase responded — safe to render
 
-    (async () => {
-      await Promise.all([
-        seedCollection(COLS.projects, SEED_PROJECTS),
-        seedCollection(COLS.tasks,    SEED_TASKS),
-        seedCollection(COLS.team,     SEED_TEAM),
-        seedCollection(COLS.states,   SEED_STATES),
-        seedCollection(COLS.audits,   SEED_AUDITS),
-        seedCollection(COLS.refunds,  SEED_REFUNDS),
-      ]);
-      setSeeded(true);
-    })();
-  });
+      if (!user) {
+        setSeeded(false); // reset on logout
+        return;
+      }
 
-  return () => unsubAuth(); // cleanup auth listener on unmount
-}, []);
+      (async () => {
+        await Promise.all([
+          seedCollection(COLS.projects, SEED_PROJECTS),
+          seedCollection(COLS.tasks,    SEED_TASKS),
+          seedCollection(COLS.team,     SEED_TEAM),
+          seedCollection(COLS.states,   SEED_STATES),
+          seedCollection(COLS.audits,   SEED_AUDITS),
+          seedCollection(COLS.refunds,  SEED_REFUNDS),
+        ]);
+        setSeeded(true);
+      })();
+    });
+
+    return () => unsubAuth();
+  }, []);
 
   useEffect(()=>{
     if(!seeded) return;
@@ -1840,8 +1862,33 @@ export default function App() {
   },[activeView,navigate,projects,tasks,team,states,audits,refunds,
      deleteProject,deleteTask,deleteState,deleteAudit,deleteRefund]);
 
-  // ── Loading guard ─────────────────────────────────────────────────────────
-  if(!seeded){
+  // ── Sign-out handler ─────────────────────────────────────────────────────
+  const handleSignOut = useCallback(() => signOut(auth), []);
+
+  // ── Loading guard — 3 distinct states ────────────────────────────────────
+
+  // 1. Firebase hasn't resolved yet — blank screen prevents flash
+  if (!authChecked) {
+    return (
+      <>
+        <GlobalStyles />
+        <div style={{ height:"100vh",background:T.bg0 }} />
+      </>
+    );
+  }
+
+  // 2. Not authenticated — show login
+  if (!authUser) {
+    return (
+      <>
+        <GlobalStyles />
+        <AuthScreen />
+      </>
+    );
+  }
+
+  // 3. Authenticated but Firestore not yet seeded/subscribed
+  if (!seeded) {
     return (
       <>
         <GlobalStyles />
@@ -1914,7 +1961,7 @@ export default function App() {
           onToggle={()=>setSidebarCollapsed(c=>!c)} />
         <div style={{ flex:1,display:"flex",flexDirection:"column",
           overflow:"hidden",background:T.bg0 }}>
-          <TopBar onCommand={()=>setCmdOpen(true)} activeView={activeView} />
+          <TopBar onCommand={()=>setCmdOpen(true)} activeView={activeView} onSignOut={handleSignOut} />
           <main style={{ flex:1,overflow:"hidden" }}>
             {currentView}
           </main>
