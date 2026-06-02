@@ -1093,7 +1093,7 @@ const CommandPalette = ({ open, onClose, onNavigate }) => {
 };
 
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
-const Sidebar = ({ active, onNav, collapsed, onToggle }) => (
+const Sidebar = ({ active, onNav, collapsed, onToggle, profile }) => (
   <aside style={{ width:collapsed?60:224,background:T.bg1,
     borderRight:`1px solid ${T.border}`,height:"100vh",display:"flex",
     flexDirection:"column",transition:"width 0.25s cubic-bezier(.4,0,.2,1)",
@@ -1140,11 +1140,11 @@ const Sidebar = ({ active, onNav, collapsed, onToggle }) => (
         <div style={{ width:30,height:30,borderRadius:"50%",flexShrink:0,
           background:`linear-gradient(135deg,${T.violet},${T.blue})`,
           display:"flex",alignItems:"center",justifyContent:"center",
-          fontSize:11,fontWeight:700 }}>{active.profile?.initials || "YA"}</div>
+          fontSize:11,fontWeight:700 }}>{profile?.initials || "YA"}</div>
         {!collapsed && (
           <div>
-            <div style={{ fontSize:12,fontWeight:600,color:T.text0 }}>{active.profile?.name || "Your Account"}</div>
-            <div style={{ fontSize:10,color:T.text3 }}>{active.profile?.role || "Senior Manager"}</div>
+            <div style={{ fontSize:12,fontWeight:600,color:T.text0 }}>{profile?.name || "Your Account"}</div>
+            <div style={{ fontSize:10,color:T.text3 }}>{profile?.role || "Senior Manager"}</div>
           </div>
         )}
       </div>
@@ -2354,7 +2354,10 @@ export default function App() {
   const [stateModal,   setStateModal] = useState(null);
   const [refundModal, setRefundModal] = useState(null);
   const [teamModal, setTeamModal] = useState(null);
-  const [userProfile, setUserProfile] = useState({ name: "Your Account", role: "Senior Manager", initials: "YA" });
+  const [userProfile, setUserProfile] = useState(() => {
+    const saved = localStorage.getItem("taxops_profile");
+    return saved ? JSON.parse(saved) : { name: "Your Account", role: "Senior Manager", initials: "YA" };
+  });
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   useEffect(() => {
