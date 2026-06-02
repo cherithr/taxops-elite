@@ -1,0 +1,28 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Dependency directories
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Keep your API keys safe!
+.env
+.env.local
+.env.production.local
+.env.development.local
+
+# Do NOT ignore your example template
+!.env.example
+
+# Editor directories and files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
