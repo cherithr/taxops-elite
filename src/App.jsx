@@ -1974,11 +1974,7 @@ const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
     return derivedRows.sort((a, b) => (b.estimated || 0) - (a.estimated || 0));
   }, [derived, dbMap]);
 
-    const derivedKeys = new Set(derived.map(d => `${d.client}|${d.state}`));
-    const standaloneRows = refunds.filter(r => !derivedKeys.has(`${r.client}|${r.state}`));
 
-    return [...derivedRows, ...standaloneRows].sort((a, b) => (b.estimated || 0) - (a.estimated || 0));
-  }, [derived, dbMap, refunds]);
 
   const totalEst = useMemo(()=>merged.reduce((a,r)=>a+(r.estimated||0),0),[merged]);
   const totalFiled = useMemo(()=>merged.reduce((a,r)=>a+(r.filed||0),0),[merged]);
