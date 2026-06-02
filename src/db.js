@@ -4,7 +4,12 @@ import {
   onSnapshot, serverTimestamp, writeBatch,
   query, orderBy,
 } from "firebase/firestore";
-export { db } from "./firebase";
+
+// 1. Import 'db' so the functions in THIS file can use it
+import { db } from "./firebase"; 
+
+// 2. Export 'db' so App.jsx can still access it
+export { db };
 
 // ─── COLLECTION REFS ────────────────────────────────────────────────────────
 export const COLS = {
