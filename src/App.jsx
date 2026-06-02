@@ -512,7 +512,7 @@ const Field = ({ label, children }) => (
 const PROJECT_DEFAULTS = {
   client:"", engagement:"", type:"Reverse Audit", tax:"Sales & Use Tax",
   states:[], exposure:0, refund:0, risk:"Medium", priority:"Medium",
-  status:"Planning", health:50,
+  status:"Planning", health:50, nexus:"Economic",
   leadStaff:"",
   assignedTeam:[],
   due:"",
@@ -607,6 +607,49 @@ if (form.id) {
             {TAX_TYPES.map(o=><option key={o}>{o}</option>)}
           </select>
         </Field>
+        
+        {/* 🟢 NEW CODE: Expanded Categorized Nexus Types */}
+        {form.type === "Nexus Study" && (
+          <Field label="Nexus Focus">
+            <select style={inputStyle({ borderColor: T.violet })} value={form.nexus || "TBD"} onChange={e=>set("nexus",e.target.value)}>
+              <option value="TBD">Select trigger or TBD...</option>
+              
+              <optgroup label="Physical Nexus">
+                <option value="Physical - Office">Office</option>
+                <option value="Physical - Warehouse">Warehouse</option>
+                <option value="Physical - Inventory">Inventory</option>
+                <option value="Physical - Employees">Employees</option>
+                <option value="Physical - Property">Property</option>
+                <option value="Physical - Vehicles">Vehicles</option>
+              </optgroup>
+              
+              <optgroup label="Economic Nexus">
+                <option value="Economic - Revenue Threshold">Revenue Threshold</option>
+                <option value="Economic - Transaction Threshold">Transaction Threshold</option>
+              </optgroup>
+              
+              <optgroup label="Attributional Nexus">
+                <option value="Attributional - Affiliate">Affiliate</option>
+                <option value="Attributional - Click-Through">Click-Through</option>
+                <option value="Attributional - Agency">Agency</option>
+              </optgroup>
+              
+              <optgroup label="Operational Nexus">
+                <option value="Operational - Services">Services</option>
+                <option value="Operational - Installation">Installation</option>
+                <option value="Operational - Repair">Repair</option>
+                <option value="Operational - Training">Training</option>
+              </optgroup>
+              
+              <optgroup label="Intangible Nexus">
+                <option value="Intangible - Royalties">Royalties</option>
+                <option value="Intangible - Licensing">Licensing</option>
+                <option value="Intangible - Intellectual Property">Intellectual Property</option>
+              </optgroup>
+            </select>
+          </Field>
+        )}
+        
         <Field label="Risk">
           <select style={inputStyle()} value={form.risk} onChange={e=>set("risk",e.target.value)}>
             {["Critical","High","Medium","Low"].map(o=><option key={o}>{o}</option>)}
