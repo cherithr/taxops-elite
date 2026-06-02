@@ -3,7 +3,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import AuthScreen from "./Auth";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { db, COLS, subscribe, createDoc, updateDocById, deleteDocById, seedCollection } from "./db";
-import { collection, query, where, getDocs, writeBatch } from "firebase/firestore";
+import { collection, query, where, getDocs, writeBatch, doc, getDoc, setDoc } from "firebase/firestore";
 import CopilotView from "./copilotview";
 
 // ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
@@ -2354,32 +2354,44 @@ export default function App() {
   const [stateModal,   setStateModal] = useState(null);
   const [refundModal, setRefundModal] = useState(null);
   const [teamModal, setTeamModal] = useState(null);
-  const [userProfile, setUserProfile] = useState(() => {
-    const saved = localStorage.getItem("taxops_profile");
-    return saved ? JSON.parse(saved) : { name: "Your Account", role: "Senior Manager", initials: "YA" };
-  });
+  const [userProfile, setUserProfile] = useState({ name: "Loading...", role: "", initials: "" });
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, (user) => {
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
       setAuthUser(user);
       setAuthChecked(true);
       if (!user) { setSeeded(false); return; }
-(async () => {
-  try {
-    await Promise.all([
-      seedCollection(COLS.projects, SEED_PROJECTS),
-      seedCollection(COLS.tasks, SEED_TASKS),
-      seedCollection(COLS.team, SEED_TEAM),
-    ]);
-  } catch (error) {
-    console.error("🔥 Failed to seed Firebase data:", error);
-  } finally {
-    // This ensures the app always loads past "Initializing...", 
-    // even if the database write failed.
-    setSeeded(true); 
-  }
-})();
+
+      // 🟢 NEW: Fetch or Create Cloud Profile securely using your user ID
+      try {
+        const userRef = doc(db, "users", user.uid);
+        const snap = await getDoc(userRef);
+        if (snap.exists()) {
+          setUserProfile(snap.data());
+        } else {
+          // If this is a brand new account, create a default cloud profile
+          const defaultProfile = { name: "Your Account", role: "Senior Manager", initials: "YA" };
+          await setDoc(userRef, defaultProfile);
+          setUserProfile(defaultProfile);
+        }
+      } catch (err) {
+        console.error("Cloud profile error:", err);
+      }
+
+      (async () => {
+        try {
+          await Promise.all([
+            seedCollection(COLS.projects, SEED_PROJECTS),
+            seedCollection(COLS.tasks, SEED_TASKS),
+            seedCollection(COLS.team, SEED_TEAM),
+          ]);
+        } catch (error) {
+          console.error("🔥 Failed to seed Firebase data:", error);
+        } finally {
+          setSeeded(true); 
+        }
+      })();
     });
     return () => unsubAuth();
   }, []);
@@ -2425,7 +2437,20 @@ export default function App() {
   return (
     <>
       <GlobalStyles />
-      {profileModalOpen && <ProfileModal initial={userProfile} onClose={()=>setProfileModalOpen(false)} onSave={setUserProfile} />}
+      {profileModalOpen && <ProfileModal initial={userProfile} onClose={()=>setProfileModalOpen(false)} onSave={async (newProfile) => {
+        // 1. Update the UI instantly
+        setUserProfile(newProfile); 
+        
+        // 2. Save to Firebase Cloud permanently
+        if (authUser) {
+          try {
+            await setDoc(doc(db, "users", authUser.uid), newProfile, { merge: true });
+          } catch (err) {
+            console.error("Failed to save profile to cloud:", err);
+            alert("Failed to save to cloud. Check your permissions.");
+          }
+        }
+      }} />}
       {projectModal !== null && <ProjectModal initial={projectModal} teamMembers={team} onClose={()=>setProjectModal(null)} />}
       {taskModal !== null && <TaskModal initial={taskModal} projects={projects} teamMembers={team} onClose={()=>setTaskModal(null)} />}
       {auditModal !== null && <AuditModal initial={auditModal} projects={projects} onClose={()=>setAuditModal(null)} />}
@@ -2434,7 +2459,7 @@ export default function App() {
       {teamModal !== null && <TeamModal initial={teamModal} onClose={()=>setTeamModal(null)} />}
       <CommandPalette open={cmdOpen} onClose={()=>setCmdOpen(false)} onNavigate={navigate} />
       <div style={{ display:"flex",height:"100vh",position:"relative",zIndex:1 }}>
-        <Sidebar active={{id: activeView, profile: userProfile}} onNav={navigate} collapsed={sidebarCollapsed} onToggle={()=>setSidebarCollapsed(c=>!c)} />
+        <Sidebar active={activeView} profile={userProfile} onNav={navigate} collapsed={sidebarCollapsed} onToggle={()=>setSidebarCollapsed(c=>!c)} />
         <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:T.bg0 }}>
           <TopBar onCommand={()=>setCmdOpen(true)} activeView={activeView} onSignOut={()=>signOut(auth)} profile={userProfile} onEditProfile={() => setProfileModalOpen(true)} />
           <main style={{ flex:1,overflow:"hidden" }}>
