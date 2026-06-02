@@ -2129,10 +2129,51 @@ const ResearchView = () => {
 };
 
 // ─── REPORTS VIEW ─────────────────────────────────────────────────────────────
-const ReportsView = () => {
-  // Temporary function to handle button clicks
+const ReportsView = ({ projects, team, audits, refunds }) => {
+  
   const handleExport = (title, format) => {
-    alert(`Export logic triggered!\n\nYou requested the "${title}" report as a ${format} file.\n\n(Data export functionality needs to be wired up here).`);
+    // 1. Only process CSVs for now
+    if (format !== "CSV") {
+      alert(`The ${format} format requires a backend plugin. Please use the CSV button for now!`);
+      return;
+    }
+
+    // 2. Gather the correct data based on which report was clicked
+    let data = [];
+    if (title === "State Exposure Summary") {
+      data = (projects || []).map(p => ({ Client: p.client, States: (p.states||[]).join(", "), Exposure: p.exposure || 0, Status: p.status }));
+    } else if (title === "Team Utilization Report") {
+      data = (team || []).map(t => ({ Name: t.name, Role: t.role, Utilization: t.utilization + "%", ActiveProjects: t.projects }));
+    } else if (title === "Refund Recovery Dashboard") {
+      data = (refunds || []).map(r => ({ Client: r.client, State: r.state, Estimated: r.estimated, Recovered: r.recovered, Status: r.status }));
+    } else if (title === "Audit Resolution Metrics") {
+      data = (audits || []).map(a => ({ Client: a.client, State: a.state, Deadline: a.deadline, Status: a.status, Exposure: a.exposure }));
+    } else {
+      data = [{ Note: "Report data structure not defined yet." }];
+    }
+
+    if (data.length === 0) {
+      alert("No data available to export for this report.");
+      return;
+    }
+
+    // 3. Convert the JSON data into a CSV string format
+    const headers = Object.keys(data[0]);
+    const csvRows = [
+      headers.join(","), // Header row
+      ...data.map(row => headers.map(fieldName => `"${String(row[fieldName] || "").replace(/"/g, '""')}"`).join(",")) // Data rows
+    ];
+    const csvString = csvRows.join("\n");
+
+    // 4. Create a hidden file link and trigger the browser download
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `${title.replace(/\s+/g, "_")}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link); // Clean up
   };
 
   return (
@@ -2148,7 +2189,6 @@ const ReportsView = () => {
               {["PDF","Excel","CSV"].map(fmt=>(
                 <button 
                   key={fmt} 
-                  // Added onClick handler here:
                   onClick={(e) => { e.stopPropagation(); handleExport(r.title, fmt); }} 
                   className="btn-ghost" 
                   style={{ fontSize:11,padding:"5px 10px",borderRadius:6,flex:1 }}
