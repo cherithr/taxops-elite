@@ -1110,7 +1110,7 @@ const Sidebar = ({ active, onNav, collapsed, onToggle }) => (
         {!collapsed && (
           <div>
             <div style={{ fontSize:12,fontWeight:600,color:T.text0 }}>Your Account</div>
-            <div style={{ fontSize:10,color:T.text3 }}>Senior Manager</div>
+            <div style={{ fontSize:10,color:T.text3 }}>Tax Senior</div>
           </div>
         )}
       </div>
