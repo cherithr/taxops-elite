@@ -1,11 +1,8 @@
 import { auth } from "./firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import AuthScreen from "./Auth";
-import React, {
-  useState, useEffect, useCallback, useRef, useMemo,
-} from "react";
-import { db, COLS, subscribe, createDoc, updateDocById, deleteDocById, seedCollection }
-  from "./db";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { db, COLS, subscribe, createDoc, updateDocById, deleteDocById, seedCollection } from "./db";
 
 // ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
 const T = {
@@ -23,64 +20,55 @@ const T = {
 
 // ─── SEED DATA ───────────────────────────────────────────────────────────────
 const SEED_PROJECTS = [
-  { client:"Meridian Energy Corp",    engagement:"SUT Reverse Audit FY2023",      type:"Reverse Audit",       tax:"Sales & Use Tax", states:["TX","LA","OK","NM"],       exposure:2840000, refund:1120000, risk:"High",     priority:"Critical", status:"In Progress",        health:72, leadStaff:"Sarah Chen",  assignedTeam:["Sarah Chen","Alex Torres"],  due:"2024-03-15", tasks:24, open:9,  billingType:"Fixed Fee",   period:"2020-2023" },
-  { client:"StellarNet Logistics",    engagement:"Multi-State Nexus Study",        type:"Nexus Study",         tax:"Sales & Use Tax", states:["CA","WA","OR","NV","AZ"], exposure:4200000, refund:0,       risk:"Critical", priority:"Critical", status:"Review Phase",       health:88, leadStaff:"James Park",  assignedTeam:["James Park","Priya Nair"],   due:"2024-02-28", tasks:18, open:3,  billingType:"Hourly",      period:"2021-2024" },
-  { client:"Ozark Resources LLC",     engagement:"Severance Tax Refund 2019-2022", type:"Refund Review",       tax:"Severance Tax",   states:["AR","OK","TX"],           exposure:890000,  refund:670000,  risk:"Medium",   priority:"High",     status:"Waiting for Client", health:45, leadStaff:"Laura Kim",   assignedTeam:["Laura Kim","Marcus Lee"],    due:"2024-04-10", tasks:15, open:11, billingType:"Contingency", period:"2019-2022" },
-  { client:"BlueRidge Manufacturing", engagement:"TX Audit Defense 2021",          type:"Audit Defense",       tax:"Sales & Use Tax", states:["TX"],                     exposure:3100000, refund:0,       risk:"Critical", priority:"Critical", status:"Escalated",          health:31, leadStaff:"Sarah Chen",  assignedTeam:["Sarah Chen","Alex Torres","Marcus Lee"], due:"2024-02-10", tasks:32, open:18, billingType:"Fixed Fee",   period:"2021"      },
-  { client:"Pinnacle Retail Group",   engagement:"Taxability Research — SaaS",     type:"Taxability Research", tax:"Sales & Use Tax", states:["NY","NJ","CT","MA","PA"], exposure:560000,  refund:0,       risk:"Low",      priority:"Medium",   status:"Planning",           health:95, leadStaff:"James Park",  assignedTeam:["James Park","Priya Nair"],   due:"2024-05-20", tasks:12, open:10, billingType:"Hourly",      period:"2023-2024" },
-  { client:"Cascade Oil & Gas",       engagement:"Severance Audit Defense WY",     type:"Audit Defense",       tax:"Severance Tax",   states:["WY","ND"],                exposure:7800000, refund:0,       risk:"Critical", priority:"Critical", status:"In Progress",        health:58, leadStaff:"Laura Kim",   assignedTeam:["Laura Kim","Alex Torres"],   due:"2024-03-01", tasks:40, open:14, billingType:"Fixed Fee",   period:"2018-2022" },
+  { client:"Meridian Energy Corp", engagement:"SUT Reverse Audit FY2023", type:"Reverse Audit", tax:"Sales & Use Tax", states:["TX","LA","OK","NM"], exposure:2840000, refund:1120000, risk:"High", priority:"Critical", status:"In Progress", health:72, leadStaff:"Sarah Chen", assignedTeam:["Sarah Chen","Alex Torres"], due:"2026-12-15", tasks:24, open:9, billingType:"Fixed Fee", period:"2020-2023" },
+  { client:"StellarNet Logistics", engagement:"Multi-State Nexus Study", type:"Nexus Study", tax:"Sales & Use Tax", states:["CA","WA","OR","NV","AZ"], exposure:4200000, refund:0, risk:"Critical", priority:"Critical", status:"Review Phase", health:88, leadStaff:"James Park", assignedTeam:["James Park","Priya Nair"], due:"2026-09-28", tasks:18, open:3, billingType:"Hourly", period:"2021-2024" },
+  { client:"Ozark Resources LLC", engagement:"Severance Tax Refund 2019-2022", type:"Refund Review", tax:"Severance Tax", states:["AR","OK","TX"], exposure:890000, refund:670000, risk:"Medium", priority:"High", status:"Waiting for Client", health:45, leadStaff:"Laura Kim", assignedTeam:["Laura Kim","Marcus Lee"], due:"2026-10-10", tasks:15, open:11, billingType:"Contingency", period:"2019-2022" },
+  { client:"BlueRidge Manufacturing", engagement:"TX Audit Defense 2021", type:"Audit Defense", tax:"Sales & Use Tax", states:["TX"], exposure:3100000, refund:0, risk:"Critical", priority:"Critical", status:"Escalated", health:31, leadStaff:"Sarah Chen", assignedTeam:["Sarah Chen","Alex Torres","Marcus Lee"], due:"2026-06-10", tasks:32, open:18, billingType:"Fixed Fee", period:"2021" },
+  { client:"Pinnacle Retail Group", engagement:"Taxability Research — SaaS", type:"Taxability Research", tax:"Sales & Use Tax", states:["NY","NJ","CT","MA","PA"], exposure:560000, refund:0, risk:"Low", priority:"Medium", status:"Planning", health:95, leadStaff:"James Park", assignedTeam:["James Park","Priya Nair"], due:"2026-11-20", tasks:12, open:10, billingType:"Hourly", period:"2023-2024" },
+  { client:"Cascade Oil & Gas", engagement:"Severance Audit Defense WY", type:"Audit Defense", tax:"Severance Tax", states:["WY","ND"], exposure:7800000, refund:0, risk:"Critical", priority:"Critical", status:"In Progress", health:58, leadStaff:"Laura Kim", assignedTeam:["Laura Kim","Alex Torres"], due:"2026-07-01", tasks:40, open:14, billingType:"Fixed Fee", period:"2018-2022" },
 ];
 const SEED_TASKS = [
-  { title:"Prepare TX Audit IDR Response — Batch 3",      project:"BlueRidge Manufacturing", priority:"Critical", status:"In Progress",        due:"2024-02-08", assignee:"Alex Torres", hours:8,  estimate:12 },
-  { title:"Review Nexus Footprint — CA Economic Nexus",    project:"StellarNet Logistics",    priority:"High",     status:"Review Phase",       due:"2024-02-12", assignee:"Priya Nair",  hours:5,  estimate:6  },
-  { title:"Compile Refund Schedules — AR Severance 2019",  project:"Ozark Resources LLC",     priority:"High",     status:"Waiting for Client", due:"2024-02-20", assignee:"Marcus Lee",  hours:3,  estimate:10 },
-  { title:"SaaS Taxability Matrix — 5-State Analysis",     project:"Pinnacle Retail Group",   priority:"Medium",   status:"Planning",           due:"2024-03-05", assignee:"Priya Nair",  hours:0,  estimate:16 },
-  { title:"WY Audit — Computational Errors Expert Review", project:"Cascade Oil & Gas",       priority:"Critical", status:"In Progress",        due:"2024-02-15", assignee:"Alex Torres", hours:14, estimate:20 },
-  { title:"Meridian — Overpayment Schedule Finalization",  project:"Meridian Energy Corp",    priority:"High",     status:"In Progress",        due:"2024-02-25", assignee:"Marcus Lee",  hours:6,  estimate:8  },
+  { title:"Prepare TX Audit IDR Response — Batch 3", project:"BlueRidge Manufacturing", priority:"Critical", status:"In Progress", due:"2026-06-08", assignee:"Alex Torres", hours:8, estimate:12 },
+  { title:"Review Nexus Footprint — CA Economic Nexus", project:"StellarNet Logistics", priority:"High", status:"Review Phase", due:"2026-06-12", assignee:"Priya Nair", hours:5, estimate:6 },
+  { title:"Compile Refund Schedules — AR Severance 2019", project:"Ozark Resources LLC", priority:"High", status:"Waiting for Client", due:"2026-06-20", assignee:"Marcus Lee", hours:3, estimate:10 },
+  { title:"SaaS Taxability Matrix — 5-State Analysis", project:"Pinnacle Retail Group", priority:"Medium", status:"Planning", due:"2026-07-05", assignee:"Priya Nair", hours:0, estimate:16 },
+  { title:"WY Audit — Computational Errors Expert Review", project:"Cascade Oil & Gas", priority:"Critical", status:"In Progress", due:"2026-06-15", assignee:"Alex Torres", hours:14, estimate:20 },
+  { title:"Meridian — Overpayment Schedule Finalization", project:"Meridian Energy Corp", priority:"High", status:"In Progress", due:"2026-06-25", assignee:"Marcus Lee", hours:6, estimate:8 },
 ];
 const SEED_TEAM = [
-  { name:"Sarah Chen",  role:"Manager",        avatar:"SC", color:T.blue,    projects:3, utilization:92, expertise:["TX","LA","OK"], status:"active"  },
-  { name:"James Park",  role:"Senior Manager", avatar:"JP", color:T.violet,  projects:2, utilization:78, expertise:["CA","WA","NY"], status:"active"  },
-  { name:"Laura Kim",   role:"Manager",        avatar:"LK", color:T.emerald, projects:2, utilization:88, expertise:["AR","WY","ND"], status:"active"  },
-  { name:"Alex Torres", role:"Senior",         avatar:"AT", color:T.cyan,    projects:4, utilization:97, expertise:["TX","NY","CA"], status:"at-risk" },
-  { name:"Priya Nair",  role:"Senior",         avatar:"PN", color:T.amber,   projects:2, utilization:65, expertise:["CA","NY","NJ"], status:"active"  },
-  { name:"Marcus Lee",  role:"Staff",          avatar:"ML", color:"#E879F9", projects:3, utilization:82, expertise:["TX","AR","OK"], status:"active"  },
+  { name:"Sarah Chen", role:"Manager", avatar:"SC", color:T.blue, projects:3, utilization:92, expertise:["TX","LA","OK"], status:"active" },
+  { name:"James Park", role:"Senior Manager", avatar:"JP", color:T.violet, projects:2, utilization:78, expertise:["CA","WA","NY"], status:"active" },
+  { name:"Laura Kim", role:"Manager", avatar:"LK", color:T.emerald, projects:2, utilization:88, expertise:["AR","WY","ND"], status:"active" },
+  { name:"Alex Torres", role:"Senior", avatar:"AT", color:T.cyan, projects:4, utilization:97, expertise:["TX","NY","CA"], status:"at-risk" },
+  { name:"Priya Nair", role:"Senior", avatar:"PN", color:T.amber, projects:2, utilization:65, expertise:["CA","NY","NJ"], status:"active" },
+  { name:"Marcus Lee", role:"Staff", avatar:"ML", color:"#E879F9", projects:3, utilization:82, expertise:["TX","AR","OK"], status:"active" },
 ];
 const SEED_STATES = [
-  { state:"TX", nexus:"Physical+Economic", status:"Under Audit",    exposure:3100000, filings:"Monthly",   risk:"Critical" },
-  { state:"CA", nexus:"Economic",          status:"Registered",     exposure:890000,  filings:"Monthly",   risk:"High"     },
-  { state:"WY", nexus:"Physical",          status:"Under Audit",    exposure:7800000, filings:"Quarterly", risk:"Critical" },
-  { state:"AR", nexus:"Physical",          status:"Refund Pending", exposure:670000,  filings:"Quarterly", risk:"Medium"   },
-  { state:"NY", nexus:"Economic",          status:"Registered",     exposure:220000,  filings:"Monthly",   risk:"Low"      },
-  { state:"LA", nexus:"Physical",          status:"Registered",     exposure:410000,  filings:"Monthly",   risk:"Medium"   },
-  { state:"OK", nexus:"Physical+Economic", status:"Registered",     exposure:330000,  filings:"Monthly",   risk:"Medium"   },
-  { state:"WA", nexus:"Economic",          status:"Registered",     exposure:175000,  filings:"Monthly",   risk:"Low"      },
+  { state:"TX", nexus:"Physical+Economic", status:"Under Audit", exposure:3100000, filings:"Monthly", risk:"Critical" },
+  { state:"CA", nexus:"Economic", status:"Registered", exposure:890000, filings:"Monthly", risk:"High" },
+  { state:"WY", nexus:"Physical", status:"Under Audit", exposure:7800000, filings:"Quarterly", risk:"Critical" },
+  { state:"AR", nexus:"Physical", status:"Refund Pending", exposure:670000, filings:"Quarterly", risk:"Medium" },
+  { state:"NY", nexus:"Economic", status:"Registered", exposure:220000, filings:"Monthly", risk:"Low" },
+  { state:"LA", nexus:"Physical", status:"Registered", exposure:410000, filings:"Monthly", risk:"Medium" },
+  { state:"OK", nexus:"Physical+Economic", status:"Registered", exposure:330000, filings:"Monthly", risk:"Medium" },
+  { state:"WA", nexus:"Economic", status:"Registered", exposure:175000, filings:"Monthly", risk:"Low" },
 ];
-const SEED_AUDITS = [
-  { client:"BlueRidge Manufacturing", state:"TX", agency:"Texas Comptroller",   period:"2021",      type:"Full Audit",           exposure:3100000, deadline:"2024-02-10", status:"Active",    daysLeft:4  },
-  { client:"Cascade Oil & Gas",       state:"WY", agency:"WY Dept of Revenue", period:"2018-2022", type:"Severance Audit",      exposure:7800000, deadline:"2024-03-01", status:"Active",    daysLeft:24 },
-  { client:"Meridian Energy Corp",    state:"LA", agency:"LA Dept of Revenue", period:"2020-2021", type:"Sales Tax Desk Audit", exposure:410000,  deadline:"2024-04-15", status:"Responded", daysLeft:69 },
-];
-const SEED_REFUNDS = [
-  { client:"Ozark Resources LLC",  state:"AR", type:"Severance Tax",   estimated:670000,  filed:670000,  recovered:0,      status:"Filed — Pending Approval", pct:0   },
-  { client:"Meridian Energy Corp", state:"TX", type:"Sales & Use Tax", estimated:1120000, filed:980000,  recovered:340000, status:"Partial Recovery",         pct:35  },
-  { client:"Meridian Energy Corp", state:"LA", type:"Sales Tax",       estimated:140000,  filed:140000,  recovered:140000, status:"Fully Recovered",          pct:100 },
-];
+const SEED_AUDITS = [];
+const SEED_REFUNDS = [];
 
 // ─── STATIC CONFIG ────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { id:"dashboard", icon:"⬡", label:"Command Center"  },
-  { id:"projects",  icon:"◈", label:"Projects"         },
-  { id:"tasks",     icon:"◻", label:"Task Board"       },
-  { id:"states",    icon:"◉", label:"State Tracker"    },
-  { id:"audits",    icon:"⚑", label:"Audit Management" },
-  { id:"refunds",   icon:"◆", label:"Refund Tracker"   },
-  { id:"team",      icon:"◈", label:"Team & Workload"  },
-  { id:"research",  icon:"⊕", label:"Research Hub"     },
-  { id:"reports",   icon:"▤", label:"Reports"          },
-  { id:"copilot",   icon:"✦", label:"Tax Copilot AI"   },
+  { id:"dashboard", icon:"⬡", label:"Command Center" },
+  { id:"projects", icon:"◈", label:"Projects" },
+  { id:"tasks", icon:"◻", label:"Task Board" },
+  { id:"states", icon:"◉", label:"State Tracker" },
+  { id:"audits", icon:"⚑", label:"Audit Management" },
+  { id:"refunds", icon:"◆", label:"Refund Tracker" },
+  { id:"team", icon:"◈", label:"Team & Workload" },
+  { id:"research", icon:"⊕", label:"Research Hub" },
+  { id:"reports", icon:"▤", label:"Reports" },
+  { id:"copilot", icon:"✦", label:"Tax Copilot AI" },
 ];
-// ─── CONFIGURABLE LISTS (edit these to add/remove options) ──────────────────
 const PROJECT_TYPES = [
   "Reverse Audit","Nexus Study","Refund Review","Audit Defense",
   "Taxability Research","Compliance Review","VDA / Voluntary Disclosure",
@@ -101,9 +89,9 @@ const TEAM_POSITIONS = [
 const TEAM_COLORS = [
   "#3B82F6","#8B5CF6","#10B981","#06B6D4","#F59E0B","#EF4444","#E879F9","#F97316",
 ];
-const TASK_COLS    = ["Planning","In Progress","Review Phase","Waiting for Client","Filed"];
-const RISK_COLORS  = { Critical:T.crimson, High:T.amber, Medium:T.blue, Low:T.emerald };
-const STATUS_COLS  = {
+const TASK_COLS = ["Planning","In Progress","Review Phase","Waiting for Client","Filed"];
+const RISK_COLORS = { Critical:T.crimson, High:T.amber, Medium:T.blue, Low:T.emerald };
+const STATUS_COLS = {
   "Planning":T.cyan, "In Progress":T.blue, "Review Phase":T.violet,
   "Waiting for Client":T.amber, "Escalated":T.crimson, "On Hold":T.text3,
   "Filed":T.emerald, "Responded":T.emerald, "Closed":T.text3,
@@ -113,26 +101,26 @@ const RESEARCH_TYPE_COLOR = {
   "Research Note":T.violet, "Taxability Matrix":T.amber, "State Guidance":T.cyan,
 };
 const RESEARCH_ARTICLES = [
-  { title:"TX Comptroller — Manufacturing Exemption Guidance 2023", state:"TX",    type:"Official Ruling",   date:"2023-11", tags:["Manufacturing","Exemption","SUT"]  },
-  { title:"Wayfair Economic Nexus Thresholds — All 50 States",      state:"Multi", type:"Internal Memo",     date:"2024-01", tags:["Nexus","Economic","Multi-State"]   },
-  { title:"WY Severance Tax — Oil & Gas Valuation Methods",         state:"WY",    type:"Research Note",     date:"2023-09", tags:["Severance","O&G","Valuation"]      },
-  { title:"SaaS Taxability Matrix — NY, NJ, CT, PA, MA",            state:"Multi", type:"Taxability Matrix", date:"2024-01", tags:["SaaS","Digital","Taxability"]      },
-  { title:"AR Severance Tax Refund Procedures — Rev Ruling 2022-04",state:"AR",    type:"Official Ruling",   date:"2022-04", tags:["Severance","Refund","AR"]          },
-  { title:"CA Economic Nexus — Remote Seller Guidance Update",      state:"CA",    type:"State Guidance",    date:"2023-11", tags:["Nexus","CA","Remote Seller"]       },
+  { title:"TX Comptroller — Manufacturing Exemption Guidance 2023", state:"TX", type:"Official Ruling", date:"2023-11", tags:["Manufacturing","Exemption","SUT"] },
+  { title:"Wayfair Economic Nexus Thresholds — All 50 States", state:"Multi", type:"Internal Memo", date:"2024-01", tags:["Nexus","Economic","Multi-State"] },
+  { title:"WY Severance Tax — Oil & Gas Valuation Methods", state:"WY", type:"Research Note", date:"2023-09", tags:["Severance","O&G","Valuation"] },
+  { title:"SaaS Taxability Matrix — NY, NJ, CT, PA, MA", state:"Multi", type:"Taxability Matrix", date:"2024-01", tags:["SaaS","Digital","Taxability"] },
+  { title:"AR Severance Tax Refund Procedures — Rev Ruling 2022-04", state:"AR", type:"Official Ruling", date:"2022-04", tags:["Severance","Refund","AR"] },
+  { title:"CA Economic Nexus — Remote Seller Guidance Update", state:"CA", type:"State Guidance", date:"2023-11", tags:["Nexus","CA","Remote Seller"] },
 ];
 const REPORT_LIST = [
-  { title:"State Exposure Summary",    desc:"Total exposure by state across all engagements",  icon:"◉", color:T.crimson },
-  { title:"Team Utilization Report",   desc:"Billable hours, capacity, workload by role",       icon:"◈", color:T.blue    },
-  { title:"Refund Recovery Dashboard", desc:"Pipeline, filed, recovered, and recovery rates",   icon:"◆", color:T.emerald },
-  { title:"Audit Resolution Metrics",  desc:"Open audits, response times, resolution rates",    icon:"⚑", color:T.amber   },
-  { title:"Project Profitability",     desc:"Revenue, write-offs, realization by engagement",   icon:"⬡", color:T.violet  },
-  { title:"SLA Compliance Report",     desc:"Deadline adherence and turnaround analysis",       icon:"⏱", color:T.cyan    },
+  { title:"State Exposure Summary", desc:"Total exposure by state across all engagements", icon:"◉", color:T.crimson },
+  { title:"Team Utilization Report", desc:"Billable hours, capacity, workload by role", icon:"◈", color:T.blue },
+  { title:"Refund Recovery Dashboard", desc:"Pipeline, filed, recovered, and recovery rates", icon:"◆", color:T.emerald },
+  { title:"Audit Resolution Metrics", desc:"Open audits, response times, resolution rates", icon:"⚑", color:T.amber },
+  { title:"Project Profitability", desc:"Revenue, write-offs, realization by engagement", icon:"⬡", color:T.violet },
+  { title:"SLA Compliance Report", desc:"Deadline adherence and turnaround analysis", icon:"⏱", color:T.cyan },
 ];
 const COPILOT_RESPONSES = {
-  nexus:   "Based on your current portfolio, **StellarNet Logistics** has the highest nexus risk. They have economic nexus in CA (>$500K threshold exceeded Q3 2023) with no current registration. Recommend immediate voluntary disclosure to minimize exposure (~$890K at risk).",
-  audit:   "Your most time-critical audit is **BlueRidge TX** — deadline in **4 days**. The IDR Batch 3 response covers $3.1M in assessed tax. Key arguments: (1) manufacturing exemption on packaging equipment, (2) resale exemption documentation gaps fixable via retroactive certificates.",
-  refund:  "Top refund opportunities:\n1. **Meridian Energy Corp TX** — $780K remaining unclaimed\n2. **Ozark Resources AR** — $670K filed, pending approval\n3. **Potential** — Cascade WY may have $400K+ in severance overpayments (2018-2019, pre-audit period)",
-  risk:    "Portfolio risk summary:\n🔴 **Critical (3):** BlueRidge TX, Cascade WY, StellarNet CA\n🟡 **High (1):** Meridian Energy TX\n🟢 **Medium-Low (2):** Ozark AR, Pinnacle Retail\n\nRecommend escalating Cascade WY — $7.8M exposure with only 24 days to deadline.",
+  nexus: "Based on your current portfolio, **StellarNet Logistics** has the highest nexus risk. They have economic nexus in CA (>$500K threshold exceeded Q3 2023) with no current registration. Recommend immediate voluntary disclosure to minimize exposure (~$890K at risk).",
+  audit: "Your most time-critical audit is **BlueRidge TX** — deadline imminent. The IDR Batch 3 response covers $3.1M in assessed tax. Key arguments: (1) manufacturing exemption on packaging equipment, (2) resale exemption documentation gaps fixable via retroactive certificates.",
+  refund: "Top refund opportunities:\n1. **Meridian Energy Corp TX** — $780K remaining unclaimed\n2. **Ozark Resources AR** — $670K filed, pending approval\n3. **Potential** — Cascade WY may have $400K+ in severance overpayments (2018-2019, pre-audit period)",
+  risk: "Portfolio risk summary:\n🔴 **Critical (3):** BlueRidge TX, Cascade WY, StellarNet CA\n🟡 **High (1):** Meridian Energy TX\n🟢 **Medium-Low (2):** Ozark AR, Pinnacle Retail\n\nRecommend escalating Cascade WY — $7.8M exposure with immediate operational attention required.",
   default: "That's a great question. Based on your current engagement data, I'd recommend reviewing your state exposure matrix and ensuring all IDR deadlines are calendared. Would you like me to generate a risk-prioritized action list for this week?",
 };
 const QUICK_PROMPTS = [
@@ -141,32 +129,37 @@ const QUICK_PROMPTS = [
 ];
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
-const fmt$         = n => n>=1000000?`$${(n/1000000).toFixed(1)}M`:n>=1000?`$${(n/1000).toFixed(0)}K`:`$${n}`;
-const riskColor    = r => RISK_COLORS[r]  || T.text2;
-const priorityColor= p => RISK_COLORS[p]  || T.text2;
-const statusColor  = s => STATUS_COLS[s]  || T.text2;
-// Auto-calculates days remaining from any ISO date string; negative = overdue
-const daysLeft     = due => {
+const fmt$ = n => n>=1000000?`$${(n/1000000).toFixed(1)}M`:n>=1000?`$${(n/1000).toFixed(0)}K`:`$${n}`;
+const riskColor = r => RISK_COLORS[r] || T.text2;
+const priorityColor = p => RISK_COLORS[p] || T.text2;
+const statusColor = s => STATUS_COLS[s] || T.text2;
+
+const daysLeft = due => {
   if (!due) return null;
-  const diff = Math.ceil((new Date(due) - new Date()) / 86400000);
-  return diff;
+  const t = new Date(due + "T00:00:00");
+  const now = new Date();
+  const d1 = Date.UTC(t.getFullYear(), t.getMonth(), t.getDate());
+  const d2 = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.ceil((d1 - d2) / 86400000);
 };
-const daysLabel    = due => {
+
+const daysLabel = due => {
   const d = daysLeft(due);
   if (d === null) return "—";
-  if (d < 0)  return `${Math.abs(d)}d overdue`;
+  if (d < 0) return `${Math.abs(d)}d overdue`;
   if (d === 0) return "Due today";
   return `${d}d left`;
 };
-const daysColor    = due => {
+
+const daysColor = due => {
   const d = daysLeft(due);
   if (d === null) return T.text3;
-  if (d < 0)  return T.crimson;
-  if (d < 10) return T.crimson;
+  if (d < 0 || d < 10) return T.crimson;
   if (d < 30) return T.amber;
   return T.emerald;
 };
-const inputStyle   = (extra={}) => ({
+
+const inputStyle = (extra={}) => ({
   padding:"8px 12px", width:"100%", borderRadius:8,
   background:T.bg3, border:`1px solid ${T.border}`, color:T.text0,
   fontSize:13, outline:"none", fontFamily:"inherit", ...extra,
@@ -174,18 +167,17 @@ const inputStyle   = (extra={}) => ({
 
 // ─── SEARCHABLE DROPDOWN ─────────────────────────────────────────────────────
 const SearchableSelect = ({ options, value, onChange, placeholder = "Search…", renderOption, getLabel }) => {
-  const [open,  setOpen]  = React.useState(false);
+  const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const ref = React.useRef(null);
 
-  // Close on outside click
   React.useEffect(() => {
     const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const getL   = opt => getLabel ? getLabel(opt) : (typeof opt === "string" ? opt : opt.name || "");
+  const getL = opt => getLabel ? getLabel(opt) : (typeof opt === "string" ? opt : opt.name || "");
   const filtered = options.filter(o => getL(o).toLowerCase().includes(query.toLowerCase()));
   const selected = options.find(o => getL(o) === value);
 
@@ -254,7 +246,7 @@ const SearchableSelect = ({ options, value, onChange, placeholder = "Search…",
 
 // ─── SEARCHABLE MULTI-SELECT ─────────────────────────────────────────────────
 const SearchableMultiSelect = ({ options, value = [], onChange, placeholder = "Search…", getLabel, renderOption }) => {
-  const [open,  setOpen]  = React.useState(false);
+  const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const ref = React.useRef(null);
 
@@ -264,16 +256,15 @@ const SearchableMultiSelect = ({ options, value = [], onChange, placeholder = "S
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const getL     = opt => getLabel ? getLabel(opt) : (typeof opt === "string" ? opt : opt.name || "");
+  const getL = opt => getLabel ? getLabel(opt) : (typeof opt === "string" ? opt : opt.name || "");
   const filtered = options.filter(o => getL(o).toLowerCase().includes(query.toLowerCase()));
-  const toggle   = label => {
+  const toggle = label => {
     const next = value.includes(label) ? value.filter(v => v !== label) : [...value, label];
     onChange(next);
   };
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      {/* ── Trigger button ── */}
       <button type="button"
         onClick={() => { setOpen(o => !o); setQuery(""); }}
         style={{
@@ -306,15 +297,12 @@ const SearchableMultiSelect = ({ options, value = [], onChange, placeholder = "S
         </span>
         <span style={{ color: T.text3, fontSize: 10, flexShrink: 0, marginLeft: 6 }}>{open ? "▲" : "▼"}</span>
       </button>
-
-      {/* ── Dropdown panel ── */}
       {open && (
         <div style={{
           position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 9999,
           background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 10,
           boxShadow: "0 16px 48px rgba(0,0,0,0.6)", overflow: "hidden",
         }}>
-          {/* Search input */}
           <div style={{ padding: "8px 8px 4px", borderBottom: `1px solid ${T.border}` }}>
             <input
               autoFocus
@@ -327,23 +315,18 @@ const SearchableMultiSelect = ({ options, value = [], onChange, placeholder = "S
                 outline: "none", fontFamily: "inherit",
               }} />
           </div>
-          {/* Selection count */}
           {value.length > 0 && (
-            <div style={{ padding: "6px 12px", fontSize: 11, color: T.blue,
-              borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between" }}>
+            <div style={{ padding: "6px 12px", fontSize: 11, color: T.blue, borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between" }}>
               <span>{value.length} selected</span>
-              <button type="button" onClick={() => onChange([])}
-                style={{ background: "none", border: "none", color: T.text3, cursor: "pointer",
-                  fontSize: 11, fontFamily: "inherit" }}>Clear all</button>
+              <button type="button" onClick={() => onChange([])} style={{ background: "none", border: "none", color: T.text3, cursor: "pointer", fontSize: 11, fontFamily: "inherit" }}>Clear all</button>
             </div>
           )}
-          {/* Options list */}
           <div style={{ maxHeight: 220, overflowY: "auto" }}>
             {filtered.length === 0 && (
               <div style={{ padding: "12px 14px", fontSize: 12, color: T.text3 }}>No results</div>
             )}
             {filtered.map((opt, i) => {
-              const label    = getL(opt);
+              const label = getL(opt);
               const selected = value.includes(label);
               return (
                 <button key={i} type="button"
@@ -358,7 +341,6 @@ const SearchableMultiSelect = ({ options, value = [], onChange, placeholder = "S
                   }}
                   onMouseEnter={e => { if (!selected) e.currentTarget.style.background = T.bg3; }}
                   onMouseLeave={e => { if (!selected) e.currentTarget.style.background = "transparent"; }}>
-                  {/* Checkbox */}
                   <span style={{
                     width: 16, height: 16, borderRadius: 4, flexShrink: 0, display: "inline-flex",
                     alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700,
@@ -371,12 +353,8 @@ const SearchableMultiSelect = ({ options, value = [], onChange, placeholder = "S
               );
             })}
           </div>
-          {/* Done button */}
           <div style={{ padding: "8px 12px", borderTop: `1px solid ${T.border}`, textAlign: "right" }}>
-            <button type="button" onClick={() => setOpen(false)}
-              style={{ background: T.blue, color: "#fff", border: "none", borderRadius: 7,
-                padding: "6px 18px", fontSize: 12, fontFamily: "inherit", cursor: "pointer",
-                fontWeight: 600 }}>Done</button>
+            <button type="button" onClick={() => setOpen(false)} style={{ background: T.blue, color: "#fff", border: "none", borderRadius: 7, padding: "6px 18px", fontSize: 12, fontFamily: "inherit", cursor: "pointer", fontWeight: 600 }}>Done</button>
           </div>
         </div>
       )}
@@ -396,9 +374,8 @@ const GlobalStyles = () => (
     ::-webkit-scrollbar-thumb:hover{background:${T.text3}}
     *{scrollbar-width:thin;scrollbar-color:${T.bg4} transparent}
     @keyframes fadeUp {from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-    @keyframes pulse  {0%,100%{opacity:1}50%{opacity:0.45}}
-    @keyframes glow   {0%,100%{box-shadow:0 0 12px ${T.blueGlow}}50%{box-shadow:0 0 28px rgba(59,130,246,0.45)}}
-    @keyframes countUp{from{opacity:0;transform:scale(0.85)}to{opacity:1;transform:scale(1)}}
+    @keyframes pulse {0%,100%{opacity:1}50%{opacity:0.45}}
+    @keyframes glow {0%,100%{box-shadow:0 0 12px ${T.blueGlow}}50%{box-shadow:0 0 28px rgba(59,130,246,0.45)}}
     @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
     .fadeUp{animation:fadeUp 0.38s ease forwards}
     .hover-lift{transition:transform 0.2s ease,box-shadow 0.2s ease}
@@ -433,10 +410,10 @@ const GlobalStyles = () => (
 );
 
 // ─── SHARED PRIMITIVES ────────────────────────────────────────────────────────
-const Badge      = ({ label, color }) => (
+const Badge = ({ label, color }) => (
   <span className="tag" style={{ background:`${color}18`, color, border:`1px solid ${color}30` }}>{label}</span>
 );
-const HealthBar  = ({ value }) => {
+const HealthBar = ({ value }) => {
   const color = value>=80?T.emerald:value>=50?T.amber:T.crimson;
   return (
     <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -447,7 +424,7 @@ const HealthBar  = ({ value }) => {
     </div>
   );
 };
-const Avatar     = ({ initials, color, size=28 }) => (
+const Avatar = ({ initials, color, size=28 }) => (
   <div style={{
     width:size, height:size, borderRadius:"50%",
     background:`linear-gradient(135deg,${color},${color}88)`,
@@ -545,13 +522,13 @@ const PROJECT_DEFAULTS = {
   client:"", engagement:"", type:"Reverse Audit", tax:"Sales & Use Tax",
   states:[], exposure:0, refund:0, risk:"Medium", priority:"Medium",
   status:"Planning", health:50,
-  leadStaff:"",           // renamed from "manager"
-  assignedTeam:[],        // replaces single "partner" — array of names
+  leadStaff:"",
+  assignedTeam:[],
   due:"",
   tasks:0, open:0, billingType:"Fixed Fee", period:"",
 };
 const ProjectModal = ({ initial, onClose, teamMembers }) => {
-  const [form, setForm]   = useState({
+  const [form, setForm] = useState({
     ...PROJECT_DEFAULTS,
     ...initial,
     assignedTeam: initial?.assignedTeam || [],
@@ -563,15 +540,15 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
     if (!form.client.trim()) return;
     setSaving(true);
     const data = { ...form,
-      exposure:     Number(form.exposure)||0,
-      refund:       Number(form.refund)||0,
-      health:       Number(form.health)||50,
-      states:       typeof form.states==="string"
+      exposure: Number(form.exposure)||0,
+      refund: Number(form.refund)||0,
+      health: Number(form.health)||50,
+      states: typeof form.states==="string"
         ? form.states.split(",").map(s=>s.trim()).filter(Boolean) : form.states,
       assignedTeam: form.assignedTeam,
     };
     if (form.id) await updateDocById(COLS.projects, form.id, data);
-    else         await createDoc(COLS.projects, data);
+    else await createDoc(COLS.projects, data);
     setSaving(false);
     onClose();
   };
@@ -634,7 +611,6 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
         </Field>
       </div>
 
-      {/* ── Lead Staff (searchable dropdown) ── */}
       <Field label="Lead Staff">
         <SearchableSelect
           options={teamMembers}
@@ -656,11 +632,9 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
           )} />
       </Field>
 
-      {/* ── Assigned Team (searchable multi-select dropdown) ── */}
       <Field label="Assigned Team">
         {teamMembers.length === 0
-          ? <div style={{ fontSize:12,color:T.text3,padding:"10px 12px",
-              background:T.bg3,borderRadius:8,border:`1px solid ${T.border}` }}>
+          ? <div style={{ fontSize:12,color:T.text3,padding:"10px 12px", background:T.bg3,borderRadius:8,border:`1px solid ${T.border}` }}>
               No team members yet — add staff first under Team &amp; Workload
             </div>
           : <SearchableMultiSelect
@@ -671,12 +645,7 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
               getLabel={m => m.name}
               renderOption={(m) => (
                 <span style={{ display:"flex",alignItems:"center",gap:8 }}>
-                  <span style={{
-                    width:22,height:22,borderRadius:"50%",flexShrink:0,
-                    background:m.color||T.blue,
-                    display:"inline-flex",alignItems:"center",justifyContent:"center",
-                    fontSize:9,fontWeight:700,color:"#fff",
-                  }}>{(m.avatar||m.name?.slice(0,2)||"?").toUpperCase()}</span>
+                  <span style={{ width:22,height:22,borderRadius:"50%",flexShrink:0, background:m.color||T.blue, display:"inline-flex",alignItems:"center",justifyContent:"center", fontSize:9,fontWeight:700,color:"#fff" }}>{(m.avatar||m.name?.slice(0,2)||"?").toUpperCase()}</span>
                   <span>{m.name}</span>
                   <span style={{ color:T.text3,marginLeft:2 }}>— {m.role}</span>
                 </span>
@@ -703,7 +672,7 @@ const TaskModal = ({ initial, onClose, projects, teamMembers }) => {
     setSaving(true);
     const data = { ...form, hours:Number(form.hours)||0, estimate:Number(form.estimate)||0 };
     if (form.id) await updateDocById(COLS.tasks, form.id, data);
-    else         await createDoc(COLS.tasks, data);
+    else await createDoc(COLS.tasks, data);
     setSaving(false);
     onClose();
   };
@@ -741,9 +710,7 @@ const TaskModal = ({ initial, onClose, projects, teamMembers }) => {
             getLabel={m => m.name}
             renderOption={(m, compact) => (
               <span style={{ display:"flex",alignItems:"center",gap:6 }}>
-                <span style={{ width:18,height:18,borderRadius:"50%",flexShrink:0,
-                  background:m.color||T.blue,display:"inline-flex",alignItems:"center",
-                  justifyContent:"center",fontSize:8,fontWeight:700,color:"#fff" }}>
+                <span style={{ width:18,height:18,borderRadius:"50%",flexShrink:0, background:m.color||T.blue,display:"inline-flex",alignItems:"center", justifyContent:"center",fontSize:8,fontWeight:700,color:"#fff" }}>
                   {(m.avatar||m.name?.slice(0,2)||"?").toUpperCase()}
                 </span>
                 <span>{m.name}</span>
@@ -786,7 +753,7 @@ const AuditModal = ({ initial, onClose, projects }) => {
     setSaving(true);
     const data = { ...form, exposure:Number(form.exposure)||0 };
     if (form.id) await updateDocById(COLS.audits, form.id, data);
-    else         await createDoc(COLS.audits, data);
+    else await createDoc(COLS.audits, data);
     setSaving(false);
     onClose();
   };
@@ -839,9 +806,6 @@ const AuditModal = ({ initial, onClose, projects }) => {
         <Field label="Deadline">
           <input style={inputStyle()} type="date" value={form.deadline} onChange={e=>set("deadline",e.target.value)} />
         </Field>
-        <Field label="Days Left">
-          <input style={inputStyle()} type="number" value={form.daysLeft} onChange={e=>set("daysLeft",e.target.value)} />
-        </Field>
         <Field label="Status">
           <select style={inputStyle()} value={form.status} onChange={e=>set("status",e.target.value)}>
             {["Active","Responded","Closed"].map(o=><option key={o}>{o}</option>)}
@@ -859,13 +823,12 @@ const StateModal = ({ initial, onClose }) => {
   const [saving, setSaving] = useState(false);
   const set = (k,v) => setForm(p=>({...p,[k]:v}));
 
-// Code Generated by Sidekick is for learning and experimentation purposes only.
   const save = async () => {
     if (!form.state.trim()) return;
     setSaving(true);
     const data = { ...form, exposure: Number(form.exposure)||0 };
     if (form.id) await updateDocById(COLS.states, form.id, data);
-    else         await createDoc(COLS.states, data);
+    else await createDoc(COLS.states, data);
     setSaving(false);
     onClose();
   };
@@ -915,12 +878,12 @@ const RefundModal = ({ initial, onClose, projects }) => {
     const data = {
       ...form,
       estimated: Number(form.estimated)||0,
-      filed:     Number(form.filed)||0,
+      filed: Number(form.filed)||0,
       recovered: Number(form.recovered)||0,
-      pct:       Number(form.pct)||0,
+      pct: Number(form.pct)||0,
     };
     if (form.id) await updateDocById(COLS.refunds, form.id, data);
-    else         await createDoc(COLS.refunds, data);
+    else await createDoc(COLS.refunds, data);
     setSaving(false);
     onClose();
   };
@@ -988,20 +951,16 @@ const CommandPalette = ({ open, onClose, onNavigate }) => {
   const [query, setQuery] = useState("");
   const inputRef = useRef();
   const commands = useMemo(() => [
-    { label:"Command Center",              icon:"⬡", action:()=>onNavigate("dashboard") },
-    { label:"All Projects",                icon:"◈", action:()=>onNavigate("projects")  },
-    { label:"Task Board",                  icon:"◻", action:()=>onNavigate("tasks")     },
-    { label:"State Tracker",               icon:"◉", action:()=>onNavigate("states")    },
-    { label:"Audit Management",            icon:"⚑", action:()=>onNavigate("audits")    },
-    { label:"Refund Tracker",              icon:"◆", action:()=>onNavigate("refunds")   },
-    { label:"Team & Workload",             icon:"◈", action:()=>onNavigate("team")      },
-    { label:"Research Hub",                icon:"⊕", action:()=>onNavigate("research")  },
-    { label:"Reports",                     icon:"▤", action:()=>onNavigate("reports")   },
-    { label:"Tax Copilot AI",              icon:"✦", action:()=>onNavigate("copilot")   },
-    { label:"CA SUT audits",               icon:"🔍",action:()=>onNavigate("states")    },
-    { label:"Projects due this week",      icon:"🔍",action:()=>onNavigate("projects")  },
-    { label:"Critical risk projects",      icon:"🔍",action:()=>onNavigate("projects")  },
-    { label:"Refund opportunities >$500K", icon:"🔍",action:()=>onNavigate("refunds")   },
+    { label:"Command Center", icon:"⬡", action:()=>onNavigate("dashboard") },
+    { label:"All Projects", icon:"◈", action:()=>onNavigate("projects") },
+    { label:"Task Board", icon:"◻", action:()=>onNavigate("tasks") },
+    { label:"State Tracker", icon:"◉", action:()=>onNavigate("states") },
+    { label:"Audit Management", icon:"⚑", action:()=>onNavigate("audits") },
+    { label:"Refund Tracker", icon:"◆", action:()=>onNavigate("refunds") },
+    { label:"Team & Workload", icon:"◈", action:()=>onNavigate("team") },
+    { label:"Research Hub", icon:"⊕", action:()=>onNavigate("research") },
+    { label:"Reports", icon:"▤", action:()=>onNavigate("reports") },
+    { label:"Tax Copilot AI", icon:"✦", action:()=>onNavigate("copilot") },
   ], [onNavigate]);
   const filtered = useMemo(() =>
     query ? commands.filter(c=>c.label.toLowerCase().includes(query.toLowerCase())) : commands,
@@ -1141,7 +1100,7 @@ const NotifButton = ({ icon, tip, badge }) => {
 };
 const TopBar = ({ onCommand, activeView, onSignOut }) => {
   const [hovered, setHovered] = useState(false);
-  const [soHov,   setSoHov]   = useState(false);
+  const [soHov, setSoHov] = useState(false);
   const label = NAV_ITEMS.find(n=>n.id===activeView)?.label || "TaxOps Elite";
   return (
     <div style={{ height:52,background:T.bg1,borderBottom:`1px solid ${T.border}`,
@@ -1199,10 +1158,10 @@ const AlertBanner = ({ color, icon, badge, text, cta, onClick }) => (
 // ─── DASHBOARD VIEW ───────────────────────────────────────────────────────────
 const DashboardView = ({ onNavigate, projects, audits, team }) => {
   const totalExposure = useMemo(()=>projects.reduce((s,p)=>s+(p.exposure||0),0),[projects]);
-  const totalRefund   = useMemo(()=>projects.reduce((s,p)=>s+(p.refund||0),0),[projects]);
+  const totalRefund = useMemo(()=>projects.reduce((s,p)=>s+(p.refund||0),0),[projects]);
   const criticalCount = useMemo(()=>projects.filter(p=>p.risk==="Critical").length,[projects]);
   const overdueAudits = useMemo(()=>audits.filter(a=>{ const d=daysLeft(a.deadline); return d!==null&&d<10; }).length,[audits]);
-  const urgentAudit   = audits.find(a=>{ const d=daysLeft(a.deadline); return d!==null&&d<10; });
+  const urgentAudit = audits.find(a=>{ const d=daysLeft(a.deadline); return d!==null&&d<10; });
   const overloadedMember = team.find(m=>(m.utilization||0)>90);
   return (
     <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%",
@@ -1251,11 +1210,11 @@ const DashboardView = ({ onNavigate, projects, audits, team }) => {
         )}
       </div>
       <div style={{ display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:14 }}>
-        <MetricCard label="Active Projects" value={projects.length} sub="across portfolio"   color={T.blue}    icon="◈" delay={0}   />
-        <MetricCard label="Total Exposure"  value={totalExposure}   sub="across all states"  color={T.crimson} icon="⚠" delay={60}  />
-        <MetricCard label="Refund Pipeline" value={totalRefund}     sub="estimated recovery" color={T.emerald} icon="◆" delay={120} />
-        <MetricCard label="Critical Risk"   value={criticalCount}   sub="require escalation" color={T.amber}   icon="⚑" delay={180} />
-        <MetricCard label="Audit Deadlines" value={overdueAudits}   sub="due within 10 days" color={T.violet}  icon="⏱" delay={240} />
+        <MetricCard label="Active Projects" value={projects.length} sub="across portfolio" color={T.blue} icon="◈" delay={0} />
+        <MetricCard label="Total Exposure" value={totalExposure} sub="across all states" color={T.crimson} icon="⚠" delay={60} />
+        <MetricCard label="Refund Pipeline" value={totalRefund} sub="estimated recovery" color={T.emerald} icon="◆" delay={120} />
+        <MetricCard label="Critical Risk" value={criticalCount} sub="require escalation" color={T.amber} icon="⚑" delay={180} />
+        <MetricCard label="Audit Deadlines" value={overdueAudits} sub="due within 10 days" color={T.violet} icon="⏱" delay={240} />
       </div>
       <div style={{ display:"grid",gridTemplateColumns:"1.6fr 1fr",gap:18 }}>
         <div>
@@ -1314,7 +1273,7 @@ const DashboardView = ({ onNavigate, projects, audits, team }) => {
                 const dl = daysLeft(a.deadline);
                 const urgColor = dl===null?T.emerald:dl<0?T.crimson:dl<10?T.crimson:dl<30?T.amber:T.emerald;
                 return (
-                <div key={a.id} className="card fadeUp"
+                <div key={a.id||i} className="card fadeUp"
                   style={{ padding:"12px 14px",animationDelay:`${i*50}ms`,
                     borderLeft:`3px solid ${urgColor}` }}>
                   <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}>
@@ -1333,7 +1292,7 @@ const DashboardView = ({ onNavigate, projects, audits, team }) => {
             <SectionHeader title="Team Utilization" action="View All" onAction={()=>onNavigate("team")} />
             <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
               {team.slice(0,5).map((m,i) => (
-                <div key={m.id} className="fadeUp" style={{ animationDelay:`${i*40}ms` }}>
+                <div key={m.id||i} className="fadeUp" style={{ animationDelay:`${i*40}ms` }}>
                   <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:4 }}>
                     <Avatar initials={m.avatar} color={m.color||T.blue} size={26} />
                     <span style={{ fontSize:12,color:T.text1,flex:1 }}>{m.name}</span>
@@ -1408,8 +1367,8 @@ const ProjectsView = ({ projects, team, onEdit, onDelete }) => {
               </div>
             </div>
             <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginBottom:12 }}>
-              <Badge label={p.type}     color={T.blue}                    />
-              <Badge label={p.tax}      color={T.violet}                  />
+              <Badge label={p.type} color={T.blue} />
+              <Badge label={p.tax} color={T.violet} />
               <Badge label={p.priority} color={priorityColor(p.priority)} />
             </div>
             <div style={{ display:"flex",gap:4,flexWrap:"wrap",marginBottom:14 }}>
@@ -1551,7 +1510,6 @@ const TasksView = ({ tasks, projects, team, onEdit, onDelete }) => {
 };
 
 // ─── STATES VIEW ──────────────────────────────────────────────────────────────
-// Derives a unified state map from live project data (auto-flows from Projects tab)
 const deriveStatesFromProjects = (projects) => {
   const map = {};
   projects.forEach(p => {
@@ -1569,13 +1527,11 @@ const deriveStatesFromProjects = (projects) => {
       }
       const entry = map[abbr];
       entry.exposure += p.exposure || 0;
-      entry.projects.push(p.client);
+      if(!entry.projects.includes(p.client)) entry.projects.push(p.client);
       entry.taxTypes.add(p.tax || "");
       entry.statuses.add(p.status || "");
-      // Bubble up risk
       const RISK_RANK = { Critical: 4, High: 3, Medium: 2, Low: 1 };
       if ((RISK_RANK[p.risk] || 0) > (RISK_RANK[entry.risk] || 0)) entry.risk = p.risk;
-      // Track earliest due date
       if (p.due && (!entry.dueDate || p.due < entry.dueDate)) entry.dueDate = p.due;
     });
   });
@@ -1584,16 +1540,13 @@ const deriveStatesFromProjects = (projects) => {
     taxTypes: [...e.taxTypes].filter(Boolean).join(", "),
     activeProjects: e.projects.length,
     hasEscalated: [...e.statuses].some(s => s === "Escalated" || s === "Under Audit" || s === "Audit Defense"),
-    hasPending:   [...e.statuses].some(s => s.includes("Waiting") || s.includes("Review") || s === "In Progress"),
-    allStatuses:  [...e.statuses],
+    hasPending: [...e.statuses].some(s => s.includes("Waiting") || s.includes("Review") || s === "In Progress"),
+    allStatuses: [...e.statuses],
   })).sort((a, b) => (b.exposure - a.exposure));
 };
 
 const StatesView = ({ states: _dbStates, projects, onEdit, onDelete }) => {
-  // Derive states from project data — overrides stored states
   const derived = useMemo(() => deriveStatesFromProjects(projects), [projects]);
-
-  // Merge: derived rows are source of truth; stored rows can still be edited for nexus/filings
   const dbMap = useMemo(() => {
     const m = {};
     _dbStates.forEach(s => { m[s.state] = s; });
@@ -1602,22 +1555,21 @@ const StatesView = ({ states: _dbStates, projects, onEdit, onDelete }) => {
 
   const rows = useMemo(() => derived.map(d => ({
     ...d,
-    nexus:   dbMap[d.state]?.nexus   || "—",
+    nexus: dbMap[d.state]?.nexus || "—",
     filings: dbMap[d.state]?.filings || "—",
-    status:  dbMap[d.state]?.status  || (
+    status: dbMap[d.state]?.status || (
       d.hasEscalated ? "Under Audit" :
-      d.hasPending   ? "In Progress" :
+      d.hasPending ? "In Progress" :
       d.allStatuses?.includes("Planning") ? "Planning" :
-      d.allStatuses?.includes("Filed")    ? "Filed"    :
-      d.allStatuses?.includes("Closed")   ? "Closed"   :
-      "Active"
+      d.allStatuses?.includes("Filed") ? "Filed" :
+      d.allStatuses?.includes("Closed") ? "Closed" : "Active"
     ),
-    dbId:    dbMap[d.state]?.id,
+    dbId: dbMap[d.state]?.id,
   })), [derived, dbMap]);
 
-  const totalExp   = useMemo(() => rows.reduce((a, r) => a + (r.exposure || 0), 0), [rows]);
+  const totalExp = useMemo(() => rows.reduce((a, r) => a + (r.exposure || 0), 0), [rows]);
   const underAudit = useMemo(() => rows.filter(r => r.hasEscalated).length, [rows]);
-  const highRisk   = useMemo(() => rows.filter(r => r.risk === "Critical" || r.risk === "High").length, [rows]);
+  const highRisk = useMemo(() => rows.filter(r => r.risk === "Critical" || r.risk === "High").length, [rows]);
 
   const [search, setSearch] = useState("");
   const visible = useMemo(() =>
@@ -1630,8 +1582,7 @@ const StatesView = ({ states: _dbStates, projects, onEdit, onDelete }) => {
     <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%",
       display:"flex",flexDirection:"column",gap:20 }}>
       <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
-        <SectionHeader title="State Tracker"
-          sub="Auto-derived from Projects · Nexus footprint · Audit exposure" />
+        <SectionHeader title="State Tracker" sub="Auto-derived from Projects · Nexus footprint · Audit exposure" />
         <div style={{ display:"flex",alignItems:"center",gap:8 }}>
           <span style={{ fontSize:11,color:T.text3 }}>🔄 Live from Projects</span>
           <input value={search} onChange={e=>setSearch(e.target.value)}
@@ -1640,10 +1591,10 @@ const StatesView = ({ states: _dbStates, projects, onEdit, onDelete }) => {
         </div>
       </div>
       <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:4 }}>
-        <MetricCard label="States Active"  value={rows.length}   sub="across portfolio"  color={T.blue}    icon="◉" delay={0}   />
-        <MetricCard label="Under Audit"    value={underAudit}    sub="escalated states"  color={T.crimson} icon="⚑" delay={50}  />
-        <MetricCard label="High Risk"      value={highRisk}      sub="need attention"    color={T.amber}   icon="⚠" delay={100} />
-        <MetricCard label="Total Exposure" value={totalExp}      sub="across all states" color={T.emerald} icon="⬡" delay={150} />
+        <MetricCard label="States Active" value={rows.length} sub="across portfolio" color={T.blue} icon="◉" delay={0} />
+        <MetricCard label="Under Audit" value={underAudit} sub="escalated states" color={T.crimson} icon="⚑" delay={50} />
+        <MetricCard label="High Risk" value={highRisk} sub="need attention" color={T.amber} icon="⚠" delay={100} />
+        <MetricCard label="Total Exposure" value={totalExp} sub="across all states" color={T.emerald} icon="⬡" delay={150} />
       </div>
       <div className="card" style={{ overflow:"hidden" }}>
         <table style={{ width:"100%",borderCollapse:"collapse" }}>
@@ -1728,20 +1679,12 @@ const StatesView = ({ states: _dbStates, projects, onEdit, onDelete }) => {
           </tbody>
         </table>
       </div>
-      {rows.length > 0 && (
-        <div style={{ fontSize:11,color:T.text3,textAlign:"right" }}>
-          {rows.length} state{rows.length!==1?"s":""} · derived from {projects.length} project{projects.length!==1?"s":""}
-          · updates automatically when you edit projects
-        </div>
-      )}
     </div>
   );
 };
 
 // ─── AUDITS VIEW ──────────────────────────────────────────────────────────────
-// Derive audit entries from ANY project that is audit-related
-// Triggers: type = "Audit Defense", OR status = "Escalated" or "Under Audit"
-const AUDIT_PROJECT_TYPES    = ["Audit Defense"];
+const AUDIT_PROJECT_TYPES = ["Audit Defense"];
 const AUDIT_PROJECT_STATUSES = ["Escalated", "Under Audit"];
 const deriveAuditsFromProjects = (projects) =>
   projects
@@ -1751,57 +1694,53 @@ const deriveAuditsFromProjects = (projects) =>
     )
     .flatMap(p =>
       (p.states && p.states.length > 0 ? p.states : ["—"]).map(st => ({
-        _derived:  true,
+        _derived: true,
         _projectId: p.id,
-        client:    p.client,
-        state:     st,
-        agency:    st !== "—" ? `${st} Dept of Revenue` : "Unknown Agency",
-        period:    p.period || "—",
-        type:      p.type === "Audit Defense" ? "Audit Defense" : "Full Audit",
-        exposure:  Math.round((p.exposure || 0) / Math.max(1, (p.states || []).length)),
-        deadline:  p.due || null,
-        status:    p.status === "Escalated" ? "Active"
+        client: p.client,
+        state: st,
+        agency: st !== "—" ? `${st} Dept of Revenue` : "Unknown Agency",
+        period: p.period || "—",
+        type: p.type === "Audit Defense" ? "Audit Defense" : "Full Audit",
+        exposure: Math.round((p.exposure || 0) / Math.max(1, (p.states || []).length)),
+        deadline: p.due || null,
+        status: p.status === "Escalated" ? "Active"
                  : p.status === "Responded" ? "Responded"
-                 : p.status === "Closed"    ? "Closed"
-                 : "Active",
-        tax:       p.tax || "",
+                 : p.status === "Closed" ? "Closed" : "Active",
+        tax: p.tax || "",
         leadStaff: p.leadStaff || "",
         assignedTeam: p.assignedTeam || [],
       }))
     );
 
 const AuditsView = ({ audits, projects, onEdit, onDelete }) => {
-  // Merge: manual Firestore audits + project-derived entries (de-dup by client+state)
   const derived = useMemo(() => deriveAuditsFromProjects(projects), [projects]);
-  const dbKeys  = useMemo(() => new Set(audits.map(a => `${a.client}|${a.state}`)), [audits]);
-  const merged  = useMemo(() => [
+  const dbKeys = useMemo(() => new Set(audits.map(a => `${a.client}|${a.state}`)), [audits]);
+  const merged = useMemo(() => [
     ...audits,
     ...derived.filter(d => !dbKeys.has(`${d.client}|${d.state}`)),
   ], [audits, derived, dbKeys]);
 
-  // Always auto-calculate daysLeft from deadline
   const rows = useMemo(() => merged.map(a => ({
     ...a,
     daysLeft: daysLeft(a.deadline),
   })), [merged]);
 
   const totalAuditExp = useMemo(()=>rows.reduce((s,a)=>s+(a.exposure||0),0),[rows]);
-  const urgent        = useMemo(()=>rows.filter(a=>a.daysLeft!==null&&a.daysLeft<10).length,[rows]);
-  const responded     = useMemo(()=>rows.filter(a=>a.status==="Responded").length,[rows]);
+  const urgent = useMemo(()=>rows.filter(a=>a.daysLeft!==null&&a.daysLeft<10).length,[rows]);
+  const responded = useMemo(()=>rows.filter(a=>a.status==="Responded").length,[rows]);
 
   return (
     <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%",
       display:"flex",flexDirection:"column",gap:20 }}>
       <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
-        <SectionHeader title="Audit Management"
-          sub="Active audit notices · IDR tracking · Response deadlines · Auto-derived from Projects" />
+        <SectionHeader title="Audit Management" sub="Active audit notices · IDR tracking · Response deadlines · Auto-derived from Projects" />
         <span style={{ fontSize:11,color:T.text3 }}>🔄 Live from Projects</span>
       </div>
       <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12 }}>
-        <MetricCard label="Active Audits"        value={rows.length}    sub="across states"      color={T.crimson} icon="⚑" delay={0}   />
-        <MetricCard label="Total Audit Exposure" value={totalAuditExp}  sub="combined estimate"  color={T.amber}   icon="⚠" delay={50}  />
-        <MetricCard label="Urgent Deadlines"     value={urgent}         sub="due within 10 days" color={T.crimson} icon="⏱" delay={100} />
-        <MetricCard label="Responded"            value={responded}      sub="IDRs submitted"     color={T.emerald} icon="✓" delay={150} />
+        <MetricCard label="Active Audits" value={rows.length} sub="across states" color={T.crimson} icon="⚑" delay={0} />
+        <MetricCard label="Total Audit Exposure" value={totalAuditExp} sub="combined estimate" color={T.amber} icon="⚠" delay={50} />
+        <MetricCard label="Urgent Deadlines" value={urgent} sub="due within 10 days" color={T.crimson} icon="⏱" delay={100} />
+        <MetricCard label="Responded" value={responded} sub="IDRs submitted" color={T.emerald} icon="✓" delay={150} />
       </div>
       <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
         {rows.length === 0 && (
@@ -1815,24 +1754,17 @@ const AuditsView = ({ audits, projects, onEdit, onDelete }) => {
           const urgentColor = dl===null?T.emerald:dl<0?T.crimson:dl<10?T.crimson:dl<30?T.amber:T.emerald;
           return (
           <div key={a.id||`${a.client}-${a.state}-${i}`} className="card hover-lift fadeUp"
-            style={{ padding:"22px 24px",animationDelay:`${i*60}ms`,
-              borderLeft:`4px solid ${urgentColor}` }}>
-            <div style={{ display:"flex",alignItems:"flex-start",
-              justifyContent:"space-between",marginBottom:14 }}>
+            style={{ padding:"22px 24px",animationDelay:`${i*60}ms`, borderLeft:`4px solid ${urgentColor}` }}>
+            <div style={{ display:"flex",alignItems:"flex-start", justifyContent:"space-between",marginBottom:14 }}>
               <div>
                 <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:4 }}>
                   <span style={{ fontSize:15,fontWeight:700,color:T.text0 }}>{a.client}</span>
                   <Badge label={a.type} color={T.blue} />
-                  <Badge label={a.status}
-                    color={a.status==="Active"?T.crimson:a.status==="Responded"?T.emerald:T.amber} />
-                  {a._derived && (
-                    <span style={{ fontSize:10,color:T.text3,background:T.bg4,
-                      padding:"2px 6px",borderRadius:4,border:`1px solid ${T.border}` }}>auto</span>
-                  )}
+                  <Badge label={a.status} color={a.status==="Active"?T.crimson:a.status==="Responded"?T.emerald:T.amber} />
+                  {a._derived && <span style={{ fontSize:10,color:T.text3,background:T.bg4, padding:"2px 6px",borderRadius:4,border:`1px solid ${T.border}` }}>auto</span>}
                 </div>
                 <div style={{ fontSize:12,color:T.text3 }}>
-                  {a.agency} · Audit Period: {a.period}
-                  {a.leadStaff && <span> · Lead: {a.leadStaff}</span>}
+                  {a.agency} · Audit Period: {a.period} {a.leadStaff && <span> · Lead: {a.leadStaff}</span>}
                 </div>
               </div>
               <div style={{ textAlign:"right" }}>
@@ -1840,59 +1772,30 @@ const AuditsView = ({ audits, projects, onEdit, onDelete }) => {
                 <div style={{ fontSize:11,color:T.text3 }}>exposure estimate</div>
               </div>
             </div>
-            <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16,
-              padding:"14px 16px",background:T.bg3,borderRadius:10,marginBottom:14 }}>
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16, padding:"14px 16px",background:T.bg3,borderRadius:10,marginBottom:14 }}>
               {[
-                { label:"State",          value: a.state },
-                { label:"Deadline",       value: a.deadline || "—" },
+                { label:"State", value: a.state },
+                { label:"Deadline", value: a.deadline || "—" },
                 { label:"Days Remaining", value:(
                   <span style={{ color:urgentColor,fontWeight:700 }}>
                     {dl===null?"—":dl<0?`${Math.abs(dl)}d overdue`:dl===0?"Today":`${dl} days`}
                   </span>
                 )},
-                { label:"Status", value:(
-                  <span style={{ color:statusColor(a.status) }}>● {a.status}</span>
-                )},
+                { label:"Status", value:( <span style={{ color:statusColor(a.status) }}>● {a.status}</span> )},
               ].map(({ label, value })=>(
                 <div key={label}>
-                  <div style={{ fontSize:10,color:T.text3,fontWeight:700,letterSpacing:"0.06em",
-                    textTransform:"uppercase",marginBottom:4 }}>{label}</div>
+                  <div style={{ fontSize:10,color:T.text3,fontWeight:700,letterSpacing:"0.06em", textTransform:"uppercase",marginBottom:4 }}>{label}</div>
                   <div style={{ fontSize:13,fontWeight:600,color:T.text0 }}>{value}</div>
                 </div>
               ))}
             </div>
             <div style={{ display:"flex",gap:8 }}>
-              <button className="btn-primary"
-                style={{ fontSize:12,padding:"8px 16px",borderRadius:8 }}>
-                View IDR Log
-              </button>
-              <button className="btn-ghost"
-                style={{ fontSize:12,padding:"8px 16px",borderRadius:8 }}>
-                Upload Document
-              </button>
-              <button className="btn-ghost"
-                style={{ fontSize:12,padding:"8px 16px",borderRadius:8 }}>
-                Draft Response
-              </button>
+              <button className="btn-primary" style={{ fontSize:12,padding:"8px 16px",borderRadius:8 }}>View IDR Log</button>
+              <button className="btn-ghost" style={{ fontSize:12,padding:"8px 16px",borderRadius:8 }}>Upload Document</button>
+              <button className="btn-ghost" style={{ fontSize:12,padding:"8px 16px",borderRadius:8 }}>Draft Response</button>
+              {!a._derived && <button className="btn-ghost" style={{ fontSize:12,padding:"8px 16px",borderRadius:8 }} onClick={()=>onEdit(a)}>Edit</button>}
               {!a._derived && (
-                <button className="btn-ghost"
-                  style={{ fontSize:12,padding:"8px 16px",borderRadius:8 }}
-                  onClick={()=>onEdit(a)}>Edit</button>
-              )}
-              {dl!==null && dl<10 && (
-                <button className="btn-ghost"
-                  style={{ fontSize:12,padding:"8px 16px",borderRadius:8,
-                    borderColor:`${T.crimson}40`,color:T.crimson,marginLeft:"auto" }}
-                  onClick={()=>!a._derived&&updateDocById(COLS.audits,a.id,{ status:"Escalated" })}>
-                  ⚑ Escalate
-                </button>
-              )}
-              {!a._derived && (
-                <button className="btn-ghost"
-                  style={{ fontSize:12,padding:"8px 16px",borderRadius:8,
-                    borderColor:`${T.crimson}40`,color:T.crimson,
-                    marginLeft:(dl!==null&&dl<10)?"0":"auto" }}
-                  onClick={()=>onDelete(a.id)}>✕ Remove</button>
+                <button className="btn-ghost" style={{ fontSize:12,padding:"8px 16px",borderRadius:8, borderColor:`${T.crimson}40`,color:T.crimson, marginLeft:"auto" }} onClick={()=>onDelete(a.id)}>✕ Remove</button>
               )}
             </div>
           </div>
@@ -1904,7 +1807,6 @@ const AuditsView = ({ audits, projects, onEdit, onDelete }) => {
 };
 
 // ─── REFUNDS VIEW ─────────────────────────────────────────────────────────────
-// Derive refund rows from projects that have refund > 0
 const deriveRefundsFromProjects = (projects) =>
   projects
     .filter(p => (p.refund || 0) > 0)
@@ -1912,52 +1814,47 @@ const deriveRefundsFromProjects = (projects) =>
       (p.states && p.states.length > 0 ? p.states : ["—"]).map((st, si) => ({
         _derived: true,
         _projectId: p.id,
-        client:    p.client,
-        state:     st,
-        type:      p.tax || "Sales & Use Tax",
-        estimated: si === 0 ? (p.refund || 0) : 0, // full amount on first state
-        filed:     0,
+        client: p.client,
+        state: st,
+        type: p.tax || "Sales & Use Tax",
+        estimated: si === 0 ? (p.refund || 0) : 0,
+        filed: 0,
         recovered: 0,
-        pct:       0,
-        status:    p.status === "Filed"          ? "Filed — Pending Approval"
-                 : p.status === "Closed"         ? "Fully Recovered"
-                 : p.status === "Responded"      ? "Partial Recovery"
-                 : p.status === "In Progress"    ? "In Preparation"
-                 : p.status === "Review Phase"   ? "Under Review"
-                 : "Identified — Not Yet Filed",
+        pct: 0,
+        status: p.status === "Filed" ? "Filed — Pending Approval"
+                 : p.status === "Closed" ? "Fully Recovered"
+                 : p.status === "Responded" ? "Partial Recovery"
+                 : p.status === "In Progress" ? "In Preparation"
+                 : p.status === "Review Phase" ? "Under Review" : "Identified — Not Yet Filed",
         leadStaff: p.leadStaff || "",
-        due:       p.due || null,
+        due: p.due || null,
       }))
     );
 
 const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
-  // Merge manual Firestore refunds + project-derived (de-dup by client+state)
   const derived = useMemo(() => deriveRefundsFromProjects(projects), [projects]);
-  const dbKeys  = useMemo(() => new Set(refunds.map(r => `${r.client}|${r.state}`)), [refunds]);
-  const merged  = useMemo(() => [
+  const dbKeys = useMemo(() => new Set(refunds.map(r => `${r.client}|${r.state}`)), [refunds]);
+  const merged = useMemo(() => [
     ...refunds,
     ...derived.filter(d => !dbKeys.has(`${d.client}|${d.state}`)),
   ], [refunds, derived, dbKeys]);
 
-  const totalEst   = useMemo(()=>merged.reduce((a,r)=>a+(r.estimated||0),0),[merged]);
+  const totalEst = useMemo(()=>merged.reduce((a,r)=>a+(r.estimated||0),0),[merged]);
   const totalFiled = useMemo(()=>merged.reduce((a,r)=>a+(r.filed||0),0),[merged]);
-  const totalRec   = useMemo(()=>merged.reduce((a,r)=>a+(r.recovered||0),0),[merged]);
+  const totalRec = useMemo(()=>merged.reduce((a,r)=>a+(r.recovered||0),0),[merged]);
 
   return (
     <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%",
       display:"flex",flexDirection:"column",gap:20 }}>
       <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
-        <SectionHeader title="Refund Tracker"
-          sub="Recovery pipeline · Auto-derived from Projects · Filing status · Estimated vs. actual savings" />
+        <SectionHeader title="Refund Tracker" sub="Recovery pipeline · Auto-derived from Projects · Filing status · Estimated vs. actual savings" />
         <span style={{ fontSize:11,color:T.text3 }}>🔄 Live from Projects</span>
       </div>
       <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12 }}>
-        <MetricCard label="Refund Pipeline" value={totalEst}   sub="total estimated"      color={T.emerald} icon="◆" delay={0}   />
-        <MetricCard label="Filed Claims"    value={totalFiled} sub="submitted to states"   color={T.blue}    icon="◈" delay={50}  />
-        <MetricCard label="Recovered"       value={totalRec}   sub="cash in hand"          color={T.cyan}    icon="✓" delay={100} />
-        <MetricCard label="Recovery Rate"
-          value={totalFiled>0?`${Math.round((totalRec/totalFiled)*100)}%`:"0%"}
-          sub="overall effectiveness" color={T.violet} icon="⬡" delay={150} />
+        <MetricCard label="Refund Pipeline" value={totalEst} sub="total estimated" color={T.emerald} icon="◆" delay={0} />
+        <MetricCard label="Filed Claims" value={totalFiled} sub="submitted to states" color={T.blue} icon="◈" delay={50} />
+        <MetricCard label="Recovered" value={totalRec} sub="cash in hand" color={T.cyan} icon="✓" delay={100} />
+        <MetricCard label="Recovery Rate" value={totalFiled>0?`${Math.round((totalRec/totalFiled)*100)}%`:"0%"} sub="overall effectiveness" color={T.violet} icon="⬡" delay={150} />
       </div>
       <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
         {merged.length === 0 && (
@@ -1967,42 +1864,29 @@ const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
           </div>
         )}
         {merged.map((r,i)=>(
-          <div key={r.id||`${r.client}-${r.state}-${i}`} className="card hover-lift fadeUp"
-            style={{ padding:"22px 24px",animationDelay:`${i*60}ms` }}>
-            <div style={{ display:"flex",alignItems:"flex-start",
-              justifyContent:"space-between",marginBottom:16 }}>
+          <div key={r.id||`${r.client}-${r.state}-${i}`} className="card hover-lift fadeUp" style={{ padding:"22px 24px",animationDelay:`${i*60}ms` }}>
+            <div style={{ display:"flex",alignItems:"flex-start", justifyContent:"space-between",marginBottom:16 }}>
               <div>
                 <div style={{ display:"flex",gap:8,alignItems:"center",marginBottom:4 }}>
                   <span style={{ fontSize:14,fontWeight:700,color:T.text0 }}>{r.client}</span>
-                  <Badge label={r.state} color={T.blue}   />
-                  <Badge label={r.type}  color={T.violet} />
-                  {r._derived && (
-                    <span style={{ fontSize:10,color:T.text3,background:T.bg4,
-                      padding:"2px 6px",borderRadius:4,border:`1px solid ${T.border}` }}>auto</span>
-                  )}
+                  <Badge label={r.state} color={T.blue} />
+                  <Badge label={r.type} color={T.violet} />
+                  {r._derived && <span style={{ fontSize:10,color:T.text3,background:T.bg4, padding:"2px 6px",borderRadius:4,border:`1px solid ${T.border}` }}>auto</span>}
                 </div>
                 <div style={{ fontSize:12,color:T.text3 }}>
-                  Status:{" "}
-                  <span style={{ color:r.pct===100?T.emerald:r.pct>0?T.amber:T.blue,fontWeight:600 }}>
-                    {r.status}
-                  </span>
+                  Status: <span style={{ color:r.pct===100?T.emerald:r.pct>0?T.amber:T.blue,fontWeight:600 }}>{r.status}</span>
                   {r.leadStaff && <span style={{ color:T.text3 }}> · Lead: {r.leadStaff}</span>}
-                  {r.due && (
-                    <span style={{ color:daysColor(r.due),marginLeft:8,fontWeight:600 }}>
-                      {daysLabel(r.due)}
-                    </span>
-                  )}
+                  {r.due && <span style={{ color:daysColor(r.due),marginLeft:8,fontWeight:600 }}>{daysLabel(r.due)}</span>}
                 </div>
               </div>
               <div style={{ display:"flex",gap:28,textAlign:"right" }}>
                 {[
-                  { label:"Estimated", value:fmt$(r.estimated||0), color:T.text0   },
-                  { label:"Filed",     value:fmt$(r.filed||0),     color:T.blue    },
+                  { label:"Estimated", value:fmt$(r.estimated||0), color:T.text0 },
+                  { label:"Filed", value:fmt$(r.filed||0), color:T.blue },
                   { label:"Recovered", value:fmt$(r.recovered||0), color:T.emerald },
                 ].map(({ label,value,color })=>(
                   <div key={label}>
-                    <div style={{ fontSize:10,color:T.text3,letterSpacing:"0.06em",
-                      textTransform:"uppercase",marginBottom:2 }}>{label}</div>
+                    <div style={{ fontSize:10,color:T.text3,letterSpacing:"0.06em", textTransform:"uppercase",marginBottom:2 }}>{label}</div>
                     <div style={{ fontSize:16,fontWeight:700,color }}>{value}</div>
                   </div>
                 ))}
@@ -2011,41 +1895,17 @@ const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
             <div style={{ marginBottom:8 }}>
               <div style={{ display:"flex",justifyContent:"space-between",marginBottom:6 }}>
                 <span style={{ fontSize:12,color:T.text3 }}>Recovery Progress</span>
-                <span style={{ fontSize:12,fontWeight:700,
-                  color:r.pct===100?T.emerald:r.pct>0?T.amber:T.blue }}>{r.pct||0}%</span>
+                <span style={{ fontSize:12,fontWeight:700, color:r.pct===100?T.emerald:r.pct>0?T.amber:T.blue }}>{r.pct||0}%</span>
               </div>
               <div className="progress-bar" style={{ height:8 }}>
-                <div className="progress-fill" style={{
-                  width:`${r.pct||0}%`,
-                  background:r.pct===100
-                    ?`linear-gradient(90deg,${T.emerald},${T.cyan})`
-                    :r.pct>0
-                      ?`linear-gradient(90deg,${T.amber},${T.blue})`
-                      :T.blue }} />
+                <div className="progress-fill" style={{ width:`${r.pct||0}%`, background:r.pct===100 ?`linear-gradient(90deg,${T.emerald},${T.cyan})` :r.pct>0 ?`linear-gradient(90deg,${T.amber},${T.blue})` :T.blue }} />
               </div>
             </div>
             <div style={{ display:"flex",gap:8,marginTop:14 }}>
+              {!r._derived && <button className="btn-ghost" style={{ fontSize:12,padding:"7px 14px",borderRadius:8 }} onClick={()=>onEdit(r)}>✏ Edit</button>}
+              <button className="btn-ghost" style={{ fontSize:12,padding:"7px 14px",borderRadius:8 }}>Upload Correspondence</button>
               {!r._derived && (
-                <button className="btn-ghost"
-                  style={{ fontSize:12,padding:"7px 14px",borderRadius:8 }}
-                  onClick={()=>onEdit(r)}>✏ Edit</button>
-              )}
-              <button className="btn-ghost"
-                style={{ fontSize:12,padding:"7px 14px",borderRadius:8 }}>
-                Upload Correspondence
-              </button>
-              {(r.pct||0)<100 && (
-                <button className="btn-primary"
-                  style={{ fontSize:12,padding:"7px 14px",borderRadius:8,marginLeft:"auto" }}
-                  onClick={()=>!r._derived&&updateDocById(COLS.refunds,r.id,{ status:"Follow-Up Sent" })}>
-                  Follow Up →
-                </button>
-              )}
-              {!r._derived && (
-                <button className="btn-ghost"
-                  style={{ fontSize:12,padding:"7px 14px",borderRadius:8,
-                    borderColor:`${T.crimson}40`,color:T.crimson }}
-                  onClick={()=>onDelete(r.id)}>✕</button>
+                <button className="btn-ghost" style={{ fontSize:12,padding:"7px 14px",borderRadius:8, borderColor:`${T.crimson}40`,color:T.crimson }} onClick={()=>onDelete(r.id)}>✕</button>
               )}
             </div>
           </div>
@@ -2055,17 +1915,12 @@ const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
   );
 };
 
-// ─── TEAM VIEW ────────────────────────────────────────────────────────────────
 // ─── TEAM MODAL ──────────────────────────────────────────────────────────────
-const TEAM_DEFAULTS = {
-  name:"", role:"Staff", avatar:"", color:TEAM_COLORS[0],
-  projects:0, utilization:0, expertise:[], status:"active",
-};
+const TEAM_DEFAULTS = { name:"", role:"Staff", avatar:"", color:TEAM_COLORS[0], projects:0, utilization:0, expertise:[], status:"active" };
 const TeamModal = ({ initial, onClose }) => {
-  const [form, setSaving2] = useState({ ...TEAM_DEFAULTS, ...initial,
-    expertise: initial?.expertise || [] });
+  const [form, setForm] = useState({ ...TEAM_DEFAULTS, ...initial, expertise: initial?.expertise || [] });
   const [saving, setSaving] = useState(false);
-  const set = (k,v) => setSaving2(p=>({...p,[k]:v}));
+  const set = (k,v) => setForm(p=>({...p,[k]:v}));
 
   const save = async () => {
     if (!form.name.trim()) return;
@@ -2073,14 +1928,14 @@ const TeamModal = ({ initial, onClose }) => {
     const initials = form.name.split(" ").map(w=>w[0]||"").join("").toUpperCase().slice(0,2);
     const data = {
       ...form,
-      avatar:     initials,
-      projects:   Number(form.projects)||0,
+      avatar: initials,
+      projects: Number(form.projects)||0,
       utilization:Number(form.utilization)||0,
-      expertise:  typeof form.expertise==="string"
+      expertise: typeof form.expertise==="string"
         ? form.expertise.split(",").map(s=>s.trim()).filter(Boolean) : form.expertise,
     };
     if (form.id) await updateDocById(COLS.team, form.id, data);
-    else         await createDoc(COLS.team, data);
+    else await createDoc(COLS.team, data);
     setSaving(false);
     onClose();
   };
@@ -2097,12 +1952,10 @@ const TeamModal = ({ initial, onClose }) => {
           </select>
         </Field>
         <Field label="Utilization (%)">
-          <input style={inputStyle()} type="number" min="0" max="100" value={form.utilization}
-            onChange={e=>set("utilization",e.target.value)} />
+          <input style={inputStyle()} type="number" min="0" max="100" value={form.utilization} onChange={e=>set("utilization",e.target.value)} />
         </Field>
         <Field label="Active Projects">
-          <input style={inputStyle()} type="number" min="0" value={form.projects}
-            onChange={e=>set("projects",e.target.value)} />
+          <input style={inputStyle()} type="number" min="0" value={form.projects} onChange={e=>set("projects",e.target.value)} />
         </Field>
         <Field label="Status">
           <select style={inputStyle()} value={form.status} onChange={e=>set("status",e.target.value)}>
@@ -2114,23 +1967,19 @@ const TeamModal = ({ initial, onClose }) => {
         <Field label="Avatar Color">
           <div style={{ display:"flex",gap:6,flexWrap:"wrap",paddingTop:4 }}>
             {TEAM_COLORS.map(c=>(
-              <button key={c} type="button" onClick={()=>set("color",c)}
-                style={{ width:26,height:26,borderRadius:"50%",background:c,border:`3px solid ${form.color===c?"#fff":"transparent"}`,cursor:"pointer" }} />
+              <button key={c} type="button" onClick={()=>set("color",c)} style={{ width:26,height:26,borderRadius:"50%",background:c,border:`3px solid ${form.color===c?"#fff":"transparent"}`,cursor:"pointer" }} />
             ))}
           </div>
         </Field>
       </div>
       <Field label="State Expertise (comma-separated)">
-        <input style={inputStyle()}
-          value={Array.isArray(form.expertise)?form.expertise.join(", "):form.expertise}
-          onChange={e=>set("expertise",e.target.value)} placeholder="TX, CA, NY" />
+        <input style={inputStyle()} value={Array.isArray(form.expertise)?form.expertise.join(", "):form.expertise} onChange={e=>set("expertise",e.target.value)} placeholder="TX, CA, NY" />
       </Field>
     </Modal>
   );
 };
 
 const TeamView = ({ team, projects, onAdd, onEdit, onDelete }) => {
-  // Auto-compute each member's active project count from live project data
   const memberStats = useMemo(() => {
     const map = {};
     team.forEach(m => { map[m.name] = { projects: 0, states: new Set() }; });
@@ -2145,49 +1994,32 @@ const TeamView = ({ team, projects, onAdd, onEdit, onDelete }) => {
     return map;
   }, [team, projects]);
   return (
-  <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%",
-    display:"flex",flexDirection:"column",gap:20 }}>
+  <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%", display:"flex",flexDirection:"column",gap:20 }}>
     <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
-      <SectionHeader title="Team & Workload"
-        sub="Utilization · Assignment matrix · Capacity planning" />
-      <button className="btn-primary"
-        onClick={onAdd}
-        style={{ padding:"8px 16px",borderRadius:8,fontSize:12,display:"flex",alignItems:"center",gap:6 }}>
-        ⊕ Add Member
-      </button>
+      <SectionHeader title="Team & Workload" sub="Utilization · Assignment matrix · Capacity planning" />
+      <button className="btn-primary" onClick={onAdd} style={{ padding:"8px 16px",borderRadius:8,fontSize:12,display:"flex",alignItems:"center",gap:6 }}>⊕ Add Member</button>
     </div>
     <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14 }}>
       {team.map((m,i)=>(
-        <div key={m.id} className="card hover-lift fadeUp"
-          style={{ padding:"20px",animationDelay:`${i*50}ms`,
-            borderTop:`2px solid ${(m.color||T.blue)}33` }}>
+        <div key={m.id||i} className="card hover-lift fadeUp" style={{ padding:"20px",animationDelay:`${i*50}ms`, borderTop:`2px solid ${(m.color||T.blue)}33` }}>
           <div style={{ display:"flex",alignItems:"center",gap:12,marginBottom:16 }}>
             <Avatar initials={m.avatar||"?"} color={m.color||T.blue} size={44} />
             <div>
               <div style={{ fontSize:14,fontWeight:700,color:T.text0 }}>{m.name}</div>
               <div style={{ fontSize:11,color:T.text3 }}>{m.role}</div>
               <div style={{ marginTop:4 }}>
-                <span className="tag" style={{
-                  background:m.status==="at-risk"?`${T.crimson}18`:m.status==="inactive"?`${T.text3}18`:`${T.emerald}18`,
-                  color:m.status==="at-risk"?T.crimson:m.status==="inactive"?T.text3:T.emerald,
-                  border:`1px solid ${m.status==="at-risk"?T.crimson:m.status==="inactive"?T.text3:T.emerald}30`,
-                  fontSize:10 }}>
+                <span className="tag" style={{ background:m.status==="at-risk"?`${T.crimson}18`:m.status==="inactive"?`${T.text3}18`:`${T.emerald}18`, color:m.status==="at-risk"?T.crimson:m.status==="inactive"?T.text3:T.emerald, border:`1px solid ${m.status==="at-risk"?T.crimson:m.status==="inactive"?T.text3:T.emerald}30`, fontSize:10 }}>
                   {m.status==="at-risk"?"⚠ Overloaded":m.status==="inactive"?"◌ Inactive":"● Active"}
                 </span>
               </div>
             </div>
             <div style={{ marginLeft:"auto",textAlign:"right" }}>
-              <div style={{ fontSize:22,fontWeight:700,
-                color:(m.utilization||0)>90?T.crimson:(m.utilization||0)>75?T.amber:T.emerald }}>
-                {m.utilization}%
-              </div>
+              <div style={{ fontSize:22,fontWeight:700, color:(m.utilization||0)>90?T.crimson:(m.utilization||0)>75?T.amber:T.emerald }}>{m.utilization}%</div>
               <div style={{ fontSize:10,color:T.text3 }}>utilization</div>
             </div>
           </div>
           <div className="progress-bar" style={{ marginBottom:14,height:6 }}>
-            <div className="progress-fill" style={{
-              width:`${m.utilization||0}%`,
-              background:(m.utilization||0)>90?T.crimson:(m.utilization||0)>75?T.amber:T.emerald }} />
+            <div className="progress-fill" style={{ width:`${m.utilization||0}%`, background:(m.utilization||0)>90?T.crimson:(m.utilization||0)>75?T.amber:T.emerald }} />
           </div>
           <div style={{ fontSize:12,color:T.text2,marginBottom:12 }}>
             {(memberStats[m.name]?.projects ?? m.projects)} active project{((memberStats[m.name]?.projects ?? m.projects)!==1?"s":"")}
@@ -2199,35 +2031,19 @@ const TeamView = ({ team, projects, onAdd, onEdit, onDelete }) => {
             )}
           </div>
           <div>
-            <div style={{ fontSize:10,color:T.text3,marginBottom:6,
-              textTransform:"uppercase",letterSpacing:"0.06em" }}>State Expertise</div>
+            <div style={{ fontSize:10,color:T.text3,marginBottom:6, textTransform:"uppercase",letterSpacing:"0.06em" }}>State Expertise</div>
             <div style={{ display:"flex",gap:4,flexWrap:"wrap" }}>
               {(m.expertise||[]).map(s=>(
-                <span key={s} className="tag"
-                  style={{ background:T.bg4,color:T.text2,border:`1px solid ${T.border}`,fontSize:10 }}>{s}</span>
+                <span key={s} className="tag" style={{ background:T.bg4,color:T.text2,border:`1px solid ${T.border}`,fontSize:10 }}>{s}</span>
               ))}
             </div>
           </div>
           <div style={{ marginTop:14,paddingTop:14,borderTop:`1px solid ${T.border}`,display:"flex",gap:8 }}>
-            <button className="btn-ghost"
-              style={{ flex:1,fontSize:11,padding:"6px",borderRadius:7 }}
-              onClick={()=>onEdit(m)}>✎ Edit</button>
-            <button className="btn-ghost"
-              style={{ flex:1,fontSize:11,padding:"6px",borderRadius:7,
-                borderColor:`${T.crimson}40`,color:T.crimson }}
-              onClick={()=>onDelete(m.id)}>✕ Remove</button>
+            <button className="btn-ghost" style={{ flex:1,fontSize:11,padding:"6px",borderRadius:7 }} onClick={()=>onEdit(m)}>✎ Edit</button>
+            <button className="btn-ghost" style={{ flex:1,fontSize:11,padding:"6px",borderRadius:7, borderColor:`${T.crimson}40`,color:T.crimson }} onClick={()=>onDelete(m.id)}>✕ Remove</button>
           </div>
         </div>
       ))}
-      {/* Empty state */}
-      {team.length === 0 && (
-        <div style={{ gridColumn:"1/-1",textAlign:"center",padding:"60px 0",color:T.text3 }}>
-          <div style={{ fontSize:32,marginBottom:12 }}>◈</div>
-          <div style={{ fontSize:14,marginBottom:8 }}>No team members yet</div>
-          <button className="btn-primary" onClick={onAdd}
-            style={{ padding:"8px 20px",borderRadius:8,fontSize:13 }}>Add First Member</button>
-        </div>
-      )}
     </div>
   </div>
   );
@@ -2236,66 +2052,38 @@ const TeamView = ({ team, projects, onAdd, onEdit, onDelete }) => {
 // ─── RESEARCH VIEW ────────────────────────────────────────────────────────────
 const ResearchView = () => {
   const [activeFilter, setActiveFilter] = useState("All");
-  const [searchQ,      setSearchQ]      = useState("");
+  const [searchQ, setSearchQ] = useState("");
   const FILTER_OPTIONS = ["All","Official Ruling","Internal Memo","Taxability Matrix","Research Note","State Guidance"];
   const visible = useMemo(()=>
     RESEARCH_ARTICLES.filter(a=>{
       const matchType = activeFilter==="All"||a.type===activeFilter;
       const q = searchQ.toLowerCase();
-      const matchQ = !q
-        ||a.title.toLowerCase().includes(q)
-        ||a.state.toLowerCase().includes(q)
-        ||a.tags.some(t=>t.toLowerCase().includes(q));
-      return matchType && matchQ;
-    }),
-  [activeFilter,searchQ]);
+      return matchType && (!q || a.title.toLowerCase().includes(q) || a.state.toLowerCase().includes(q) || a.tags.some(t=>t.toLowerCase().includes(q)));
+    }), [activeFilter,searchQ]);
   return (
-    <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%",
-      display:"flex",flexDirection:"column",gap:20 }}>
-      <SectionHeader title="Research Hub"
-        sub="Rulings · Internal memos · Taxability matrices · State guidance" />
+    <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%", display:"flex",flexDirection:"column",gap:20 }}>
+      <SectionHeader title="Research Hub" sub="Rulings · Internal memos · Taxability matrices · State guidance" />
       <div style={{ display:"flex",gap:10,flexWrap:"wrap",alignItems:"center" }}>
-        <input value={searchQ} onChange={e=>setSearchQ(e.target.value)}
-          placeholder="Search research, rulings, states..."
-          style={{ padding:"8px 14px",width:300,height:36 }} />
+        <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search research, rulings, states..." style={{ padding:"8px 14px",width:300,height:36 }} />
         {FILTER_OPTIONS.map(f=>(
-          <button key={f} onClick={()=>setActiveFilter(f)}
-            style={{ fontSize:12,padding:"6px 12px",borderRadius:8,
-              cursor:"pointer",transition:"all 0.15s",fontFamily:"inherit",
-              background:activeFilter===f?T.blue:"transparent",
-              color:activeFilter===f?"#fff":T.text2,
-              border:activeFilter===f?`1px solid ${T.blue}`:`1px solid ${T.border}` }}>{f}</button>
+          <button key={f} onClick={()=>setActiveFilter(f)} style={{ fontSize:12,padding:"6px 12px",borderRadius:8, cursor:"pointer",transition:"all 0.15s",fontFamily:"inherit", background:activeFilter===f?T.blue:"transparent", color:activeFilter===f?"#fff":T.text2, border:activeFilter===f?`1px solid ${T.blue}`:`1px solid ${T.border}` }}>{f}</button>
         ))}
       </div>
       <div style={{ display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12 }}>
         {visible.map((a,i)=>(
-          <div key={i} className="card hover-lift fadeUp"
-            style={{ padding:"18px 20px",cursor:"pointer",animationDelay:`${i*40}ms`,
-              borderLeft:`3px solid ${RESEARCH_TYPE_COLOR[a.type]||T.blue}` }}>
-            <div style={{ display:"flex",justifyContent:"space-between",
-              alignItems:"flex-start",marginBottom:8 }}>
-              <span style={{ fontSize:13,fontWeight:600,color:T.text0,
-                lineHeight:1.4,flex:1,paddingRight:12 }}>{a.title}</span>
-              <span className="tag" style={{
-                background:`${RESEARCH_TYPE_COLOR[a.type]||T.blue}15`,
-                color:RESEARCH_TYPE_COLOR[a.type]||T.blue,
-                border:`1px solid ${RESEARCH_TYPE_COLOR[a.type]||T.blue}30`,
-                flexShrink:0,fontSize:10 }}>{a.type}</span>
+          <div key={i} className="card hover-lift fadeUp" style={{ padding:"18px 20px",cursor:"pointer",animationDelay:`${i*40}ms`, borderLeft:`3px solid ${RESEARCH_TYPE_COLOR[a.type]||T.blue}` }}>
+            <div style={{ display:"flex",justifyContent:"space-between", alignItems:"flex-start",marginBottom:8 }}>
+              <span style={{ fontSize:13,fontWeight:600,color:T.text0, lineHeight:1.4,flex:1,paddingRight:12 }}>{a.title}</span>
+              <span className="tag" style={{ background:`${RESEARCH_TYPE_COLOR[a.type]||T.blue}15`, color:RESEARCH_TYPE_COLOR[a.type]||T.blue, border:`1px solid ${RESEARCH_TYPE_COLOR[a.type]||T.blue}30`, flexShrink:0,fontSize:10 }}>{a.type}</span>
             </div>
             <div style={{ fontSize:11,color:T.text3,marginBottom:10 }}>{a.state} · Updated {a.date}</div>
             <div style={{ display:"flex",gap:4,flexWrap:"wrap" }}>
               {a.tags.map(tag=>(
-                <span key={tag} className="tag"
-                  style={{ background:T.bg4,color:T.text2,border:`1px solid ${T.border}`,fontSize:10 }}>{tag}</span>
+                <span key={tag} className="tag" style={{ background:T.bg4,color:T.text2,border:`1px solid ${T.border}`,fontSize:10 }}>{tag}</span>
               ))}
             </div>
           </div>
         ))}
-        {visible.length===0 && (
-          <div style={{ gridColumn:"1/-1",textAlign:"center",padding:"48px",color:T.text3,fontSize:13 }}>
-            No research articles match your filter.
-          </div>
-        )}
       </div>
     </div>
   );
@@ -2303,21 +2091,17 @@ const ResearchView = () => {
 
 // ─── REPORTS VIEW ─────────────────────────────────────────────────────────────
 const ReportsView = () => (
-  <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%",
-    display:"flex",flexDirection:"column",gap:20 }}>
+  <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%", display:"flex",flexDirection:"column",gap:20 }}>
     <SectionHeader title="Executive Reports" sub="Export-ready analytics · PDF · Excel · CSV" />
     <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14 }}>
       {REPORT_LIST.map((r,i)=>(
-        <div key={i} className="card hover-lift fadeUp"
-          style={{ padding:"24px",cursor:"pointer",
-            animationDelay:`${i*50}ms`,borderTop:`2px solid ${r.color}33` }}>
+        <div key={i} className="card hover-lift fadeUp" style={{ padding:"24px",cursor:"pointer", animationDelay:`${i*50}ms`,borderTop:`2px solid ${r.color}33` }}>
           <div style={{ fontSize:28,marginBottom:14,opacity:0.85 }}>{r.icon}</div>
           <div style={{ fontSize:14,fontWeight:700,color:T.text0,marginBottom:6 }}>{r.title}</div>
           <div style={{ fontSize:12,color:T.text3,marginBottom:18,lineHeight:1.55 }}>{r.desc}</div>
           <div style={{ display:"flex",gap:6 }}>
             {["PDF","Excel","CSV"].map(fmt=>(
-              <button key={fmt} className="btn-ghost"
-                style={{ fontSize:11,padding:"5px 10px",borderRadius:6,flex:1 }}>{fmt}</button>
+              <button key={fmt} className="btn-ghost" style={{ fontSize:11,padding:"5px 10px",borderRadius:6,flex:1 }}>{fmt}</button>
             ))}
           </div>
         </div>
@@ -2328,17 +2112,15 @@ const ReportsView = () => (
 
 // ─── COPILOT VIEW ─────────────────────────────────────────────────────────────
 const CopilotView = () => {
-  const [messages,  setMessages]  = useState([{
+  const [messages, setMessages] = useState([{
     role:"assistant",
-    text:"Hello! I'm **Tax Copilot**, your AI assistant for indirect tax operations. I can help with:\n\n• Risk analysis across your project portfolio\n• Nexus exposure assessment\n• Audit strategy recommendations\n• Refund opportunity identification\n• Deadline prioritization\n• Draft IDR responses\n\nWhat would you like to explore today?",
+    text:"Hello! I'm **Tax Copilot**, your AI assistant for indirect tax operations. What would you like to explore today?",
   }]);
-  const [input,    setInput]    = useState("");
+  const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const bottomRef = useRef();
-  const inputRef  = useRef("");
-  useEffect(()=>{ inputRef.current=input; },[input]);
   const send = useCallback((override)=>{
-    const userMsg=(override??inputRef.current).trim();
+    const userMsg=(override??input).trim();
     if(!userMsg)return;
     setMessages(prev=>[...prev,{ role:"user",text:userMsg }]);
     setInput("");
@@ -2348,95 +2130,33 @@ const CopilotView = () => {
       setMessages(prev=>[...prev,{ role:"assistant",text:COPILOT_RESPONSES[key] }]);
       setThinking(false);
     },1200);
-  },[]);
+  },[input]);
   useEffect(()=>{ bottomRef.current?.scrollIntoView({ behavior:"smooth" }); },[messages,thinking]);
-  const renderText = (text) =>
-    text.split("\n").map((line,i)=>{
-      const html=line.replace(/\*\*(.*?)\*\*/g,(_,b)=>`<strong style="color:${T.text0}">${b}</strong>`);
-      return (
-        <div key={i} style={{ marginBottom:line===""?8:0,minHeight:line===""?8:undefined }}
-          dangerouslySetInnerHTML={{ __html:html||" " }} />
-      );
-    });
   return (
-    <div style={{ padding:"28px 32px",height:"100%",display:"flex",
-      flexDirection:"column",overflow:"hidden" }}>
+    <div style={{ padding:"28px 32px",height:"100%",display:"flex", flexDirection:"column",overflow:"hidden" }}>
       <div style={{ marginBottom:20,flexShrink:0 }}>
         <div style={{ display:"flex",alignItems:"center",gap:12 }}>
-          <div style={{ width:40,height:40,borderRadius:12,flexShrink:0,
-            background:`linear-gradient(135deg,${T.violet},${T.blue})`,
-            display:"flex",alignItems:"center",justifyContent:"center",
-            fontSize:18,boxShadow:`0 4px 20px ${T.violetGlow}`,
-            animation:"glow 3s ease-in-out infinite" }}>✦</div>
+          <div style={{ width:40,height:40,borderRadius:12,flexShrink:0, background:`linear-gradient(135deg,${T.violet},${T.blue})`, display:"flex",alignItems:"center",justifyContent:"center", fontSize:18,boxShadow:`0 4px 20px ${T.violetGlow}`, animation:"glow 3s ease-in-out infinite" }}>✦</div>
           <div>
             <h2 style={{ fontSize:18,fontWeight:700,color:T.text0 }}>Tax Copilot</h2>
             <p style={{ fontSize:12,color:T.text3 }}>AI-powered indirect tax intelligence · Powered by GPT-4</p>
-          </div>
-          <div style={{ marginLeft:"auto" }}>
-            <span className="tag" style={{ background:`${T.emerald}15`,color:T.emerald,
-              border:`1px solid ${T.emerald}30`,animation:"pulse 2s infinite" }}>● Online</span>
           </div>
         </div>
       </div>
       <div style={{ flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:16,paddingBottom:8 }}>
         {messages.map((m,i)=>(
-          <div key={i} className="fadeUp"
-            style={{ display:"flex",gap:12,justifyContent:m.role==="user"?"flex-end":"flex-start" }}>
-            {m.role==="assistant" && (
-              <div style={{ width:30,height:30,borderRadius:8,flexShrink:0,marginTop:2,
-                background:`linear-gradient(135deg,${T.violet},${T.blue})`,
-                display:"flex",alignItems:"center",justifyContent:"center",fontSize:12 }}>✦</div>
-            )}
-            <div style={{ maxWidth:"75%",
-              background:m.role==="user"?`linear-gradient(135deg,${T.blue},${T.blueDim})`:T.bg2,
-              border:`1px solid ${m.role==="user"?T.blue:T.border}`,
-              borderRadius:m.role==="user"?"16px 16px 4px 16px":"4px 16px 16px 16px",
-              padding:"14px 16px",fontSize:13,lineHeight:1.65,color:T.text1 }}>
-              {renderText(m.text)}
+          <div key={i} className="fadeUp" style={{ display:"flex",gap:12,justifyContent:m.role==="user"?"flex-end":"flex-start" }}>
+            <div style={{ maxWidth:"75%", background:m.role==="user"?`linear-gradient(135deg,${T.blue},${T.blueDim})`:T.bg2, border:`1px solid ${m.role==="user"?T.blue:T.border}`, borderRadius:"12px", padding:"14px 16px",fontSize:13,lineHeight:1.65,color:T.text1 }}>
+              {m.text}
             </div>
-            {m.role==="user" && (
-              <div style={{ width:30,height:30,borderRadius:"50%",flexShrink:0,
-                background:`linear-gradient(135deg,${T.violet},${T.blue})`,
-                display:"flex",alignItems:"center",justifyContent:"center",
-                fontSize:11,fontWeight:700 }}>YA</div>
-            )}
           </div>
         ))}
-        {thinking && (
-          <div style={{ display:"flex",gap:12 }}>
-            <div style={{ width:30,height:30,borderRadius:8,
-              background:`linear-gradient(135deg,${T.violet},${T.blue})`,
-              display:"flex",alignItems:"center",justifyContent:"center",fontSize:12 }}>✦</div>
-            <div style={{ background:T.bg2,border:`1px solid ${T.border}`,
-              borderRadius:"4px 16px 16px 16px",padding:"14px 18px" }}>
-              <div style={{ display:"flex",gap:6,alignItems:"center" }}>
-                {[0,1,2].map(d=>(
-                  <div key={d} style={{ width:6,height:6,borderRadius:"50%",background:T.blue,
-                    animation:"pulse 1.2s ease-in-out infinite",animationDelay:`${d*0.2}s` }} />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
         <div ref={bottomRef} />
       </div>
       <div style={{ paddingTop:12,flexShrink:0,display:"flex",flexDirection:"column",gap:10 }}>
-        <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
-          {QUICK_PROMPTS.map(p=>(
-            <button key={p} className="btn-ghost"
-              style={{ fontSize:11,padding:"5px 12px",borderRadius:20 }}
-              onClick={()=>send(p)}>{p}</button>
-          ))}
-        </div>
         <div style={{ display:"flex",gap:8 }}>
-          <input value={input} onChange={e=>setInput(e.target.value)}
-            onKeyDown={e=>e.key==="Enter"&&send()}
-            placeholder="Ask Tax Copilot anything — audits, nexus, refunds, risks..."
-            style={{ flex:1,padding:"12px 16px",borderRadius:12,fontSize:13 }} />
-          <button className="btn-primary" onClick={()=>send()}
-            style={{ padding:"12px 20px",borderRadius:12,fontSize:13,flexShrink:0 }}>
-            Send ↵
-          </button>
+          <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Ask Tax Copilot anything…" style={{ flex:1,padding:"12px 16px",borderRadius:12,fontSize:13 }} />
+          <button className="btn-primary" onClick={()=>send()} style={{ padding:"12px 20px",borderRadius:12,fontSize:13,flexShrink:0 }}>Send</button>
         </div>
       </div>
     </div>
@@ -2445,56 +2165,41 @@ const CopilotView = () => {
 
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 export default function App() {
-  // ── Auth gate ─────────────────────────────────────────────────────────────
-  const [authUser,    setAuthUser]    = useState(null);
+  const [authUser, setAuthUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
-
-  // ── Firestore live state ──────────────────────────────────────────────────
   const [projects, setProjects] = useState([]);
-  const [tasks,    setTasks]    = useState([]);
-  const [team,     setTeam]     = useState([]);
-  const [states,   setStates]   = useState([]);
-  const [audits,   setAudits]   = useState([]);
-  const [refunds,  setRefunds]  = useState([]);
-  const [seeded,   setSeeded]   = useState(false);
-
-  // ── UI state ─────────────────────────────────────────────────────────────
-  const [activeView,       setActiveView]       = useState("dashboard");
-  const [cmdOpen,          setCmdOpen]          = useState(false);
+  const [tasks, setTasks] = useState([]);
+  const [team, setTeam] = useState([]);
+  const [states, setStates] = useState([]);
+  const [audits, setAudits] = useState([]);
+  const [refunds, setRefunds] = useState([]);
+  const [seeded, setSeeded] = useState(false);
+  const [activeView, setActiveView] = useState("dashboard");
+  const [cmdOpen, setCmdOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // ── Modal state ───────────────────────────────────────────────────────────
-  const [projectModal, setProjectModal] = useState(null); // null | {} | existing doc
-  const [taskModal,    setTaskModal]    = useState(null);
-  const [auditModal,   setAuditModal]   = useState(null);
-  const [stateModal,   setStateModal]   = useState(null);
-  const [refundModal,  setRefundModal]  = useState(null);
-  const [teamModal,    setTeamModal]    = useState(null); // null | {} | existing member
+  const [projectModal, setProjectModal] = useState(null);
+  const [taskModal, setTaskModal] = useState(null);
+  const [auditModal, setAuditModal] = useState(null);
+  const [stateModal, setStateModal] = useState(null);
+  const [refundModal, setRefundModal] = useState(null);
+  const [teamModal, setTeamModal] = useState(null);
 
-  // ── Auth listener + seed ─────────────────────────────────────────────────
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (user) => {
       setAuthUser(user);
-      setAuthChecked(true); // Firebase responded — safe to render
-
-      if (!user) {
-        setSeeded(false); // reset on logout
-        return;
-      }
-
+      setAuthChecked(true);
+      if (!user) { setSeeded(false); return; }
       (async () => {
         await Promise.all([
           seedCollection(COLS.projects, SEED_PROJECTS),
-          seedCollection(COLS.tasks,    SEED_TASKS),
-          seedCollection(COLS.team,     SEED_TEAM),
-          seedCollection(COLS.states,   SEED_STATES),
-          seedCollection(COLS.audits,   SEED_AUDITS),
-          seedCollection(COLS.refunds,  SEED_REFUNDS),
+          seedCollection(COLS.tasks, SEED_TASKS),
+          seedCollection(COLS.team, SEED_TEAM),
+          seedCollection(COLS.states, SEED_STATES),
         ]);
         setSeeded(true);
       })();
     });
-
     return () => unsubAuth();
   }, []);
 
@@ -2502,237 +2207,69 @@ export default function App() {
     if(!seeded) return;
     const unsubs = [
       subscribe(COLS.projects, setProjects),
-      subscribe(COLS.tasks,    setTasks),
-      subscribe(COLS.team,     setTeam),
-      subscribe(COLS.states,   setStates),
-      subscribe(COLS.audits,   setAudits),
-      subscribe(COLS.refunds,  setRefunds),
+      subscribe(COLS.tasks, setTasks),
+      subscribe(COLS.team, setTeam),
+      subscribe(COLS.states, setStates),
+      subscribe(COLS.audits, setAudits),
+      subscribe(COLS.refunds, setRefunds),
     ];
     return ()=>unsubs.forEach(u=>u());
   },[seeded]);
 
-  // ── Keyboard shortcuts ────────────────────────────────────────────────────
-  const navigate = useCallback((view)=>{
-    setActiveView(view);
-    setCmdOpen(false);
-  },[]);
-
+  const navigate = useCallback((view)=>{ setActiveView(view); setCmdOpen(false); },[]);
   useEffect(()=>{
     const handler=(e)=>{
       if((e.metaKey||e.ctrlKey)&&e.key==="k"){ e.preventDefault(); setCmdOpen(o=>!o); }
-      if(e.key==="Escape") setCmdOpen(false);
     };
     window.addEventListener("keydown",handler);
     return ()=>window.removeEventListener("keydown",handler);
   },[]);
 
-  // ── Delete helpers ────────────────────────────────────────────────────────
-  const deleteProject = useCallback((id)=>{ if(window.confirm("Delete this project?")) deleteDocById(COLS.projects,id); },[]);
-  const deleteTask    = useCallback((id)=>{ if(window.confirm("Delete this task?"))    deleteDocById(COLS.tasks,id);    },[]);
-  const deleteState   = useCallback((id)=>{ if(window.confirm("Delete this state?"))   deleteDocById(COLS.states,id);   },[]);
-  const deleteAudit   = useCallback((id)=>{ if(window.confirm("Delete this audit?"))   deleteDocById(COLS.audits,id);   },[]);
-  const deleteRefund  = useCallback((id)=>{ if(window.confirm("Delete this refund?"))  deleteDocById(COLS.refunds,id);  },[]);
-  const deleteTeam    = useCallback((id)=>{ if(window.confirm("Remove this team member?")) deleteDocById(COLS.team,id); },[]);
+  const deleteProject = useCallback((id)=>{ if(window.confirm("Delete project?")) deleteDocById(COLS.projects,id); },[]);
+  const deleteTask = useCallback((id)=>{ if(window.confirm("Delete task?")) deleteDocById(COLS.tasks,id); },[]);
+  const deleteState = useCallback((id)=>{ if(window.confirm("Delete state?")) deleteDocById(COLS.states,id); },[]);
+  const deleteAudit = useCallback((id)=>{ if(window.confirm("Delete audit?")) deleteDocById(COLS.audits,id); },[]);
+  const deleteRefund = useCallback((id)=>{ if(window.confirm("Delete refund?")) deleteDocById(COLS.refunds,id); },[]);
+  const deleteTeam = useCallback((id)=>{ if(window.confirm("Remove member?")) deleteDocById(COLS.team,id); },[]);
 
-  // ── FAB / header new-item routing ─────────────────────────────────────────
   const handleNew = useCallback(()=>{
-    const map = {
-      projects: ()=>setProjectModal({}),
-      tasks:    ()=>setTaskModal({}),
-      states:   ()=>setStateModal({}),
-      audits:   ()=>setAuditModal({}),
-      refunds:  ()=>setRefundModal({}),
-      team:     ()=>setTeamModal({}),
-    };
+    const map = { projects: ()=>setProjectModal({}), tasks: ()=>setTaskModal({}), states: ()=>setStateModal({}), audits: ()=>setAuditModal({}), refunds: ()=>setRefundModal({}), team: ()=>setTeamModal({}) };
     (map[activeView]??map.projects)();
   },[activeView]);
 
-  // ── View renderer ─────────────────────────────────────────────────────────
-  const renderView = () => {
-    switch(activeView){
-      case "dashboard": return (
-        <DashboardView
-          onNavigate={navigate}
-          projects={projects}
-          audits={audits}
-          team={team} />
-      );
-      case "projects": return (
-        <ProjectsView
-          projects={projects}
-          team={team}
-          onEdit={p=>setProjectModal(p)}
-          onDelete={deleteProject} />
-      );
-      case "tasks": return (
-        <TasksView
-          tasks={tasks}
-          projects={projects}
-          team={team}
-          onEdit={t=>setTaskModal(t)}
-          onDelete={deleteTask} />
-      );
-      case "states": return (
-        <StatesView
-          states={states}
-          projects={projects}
-          onEdit={s=>setStateModal(s)}
-          onDelete={deleteState} />
-      );
-      case "audits": return (
-        <AuditsView
-          audits={audits}
-          projects={projects}
-          onEdit={a=>setAuditModal(a)}
-          onDelete={deleteAudit} />
-      );
-      case "refunds": return (
-        <RefundsView
-          refunds={refunds}
-          projects={projects}
-          onEdit={r=>setRefundModal(r)}
-          onDelete={deleteRefund} />
-      );
-      case "team": return (
-        <TeamView
-          team={team}
-          projects={projects}
-          onAdd={()=>setTeamModal({})}
-          onEdit={m=>setTeamModal(m)}
-          onDelete={deleteTeam} />
-      );
-      case "research": return <ResearchView />;
-      case "reports":  return <ReportsView  />;
-      case "copilot":  return <CopilotView  />;
-      default:         return (
-        <DashboardView
-          onNavigate={navigate}
-          projects={projects}
-          audits={audits}
-          team={team} />
-      );
-    }
-  };
-
-  // ── Sign-out handler ─────────────────────────────────────────────────────
-  const handleSignOut = useCallback(() => signOut(auth), []);
-
-  // ── Loading guard — 3 distinct states ────────────────────────────────────
-
-  // 1. Firebase hasn't resolved yet — blank screen prevents flash
-  if (!authChecked) {
-    return (
-      <>
-        <GlobalStyles />
-        <div style={{ height:"100vh",background:T.bg0 }} />
-      </>
-    );
-  }
-
-  // 2. Not authenticated — show login
-  if (!authUser) {
-    return (
-      <>
-        <GlobalStyles />
-        <AuthScreen />
-      </>
-    );
-  }
-
-  // 3. Authenticated but Firestore not yet seeded/subscribed
-  if (!seeded) {
-    return (
-      <>
-        <GlobalStyles />
-        <div style={{ height:"100vh",display:"flex",alignItems:"center",
-          justifyContent:"center",flexDirection:"column",gap:16,background:T.bg0 }}>
-          <div style={{ width:40,height:40,borderRadius:12,
-            background:`linear-gradient(135deg,${T.blue},${T.violet})`,
-            display:"flex",alignItems:"center",justifyContent:"center",
-            fontSize:18,animation:"glow 1.5s ease-in-out infinite" }}>⬡</div>
-          <div style={{ fontSize:13,color:T.text3 }}>Initializing TaxOps Elite…</div>
-        </div>
-      </>
-    );
-  }
+  if (!authChecked) return <><GlobalStyles /><div style={{ height:"100vh",background:T.bg0 }} /></>;
+  if (!authUser) return <><GlobalStyles /><AuthScreen /></>;
+  if (!seeded) return <><GlobalStyles /><div style={{ height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg0,color:T.text3 }}>Initializing…</div></>;
 
   return (
     <>
       <GlobalStyles />
-
-      {/* ── Modals ── */}
-      {projectModal !== null && (
-        <ProjectModal
-          initial={projectModal}
-          teamMembers={team}
-          onClose={()=>setProjectModal(null)} />
-      )}
-      {taskModal !== null && (
-        <TaskModal
-          initial={taskModal}
-          projects={projects}
-          teamMembers={team}
-          onClose={()=>setTaskModal(null)} />
-      )}
-      {auditModal !== null && (
-        <AuditModal
-          initial={auditModal}
-          projects={projects}
-          onClose={()=>setAuditModal(null)} />
-      )}
-      {stateModal !== null && (
-        <StateModal
-          initial={stateModal}
-          onClose={()=>setStateModal(null)} />
-      )}
-      {refundModal !== null && (
-        <RefundModal
-          initial={refundModal}
-          projects={projects}
-          onClose={()=>setRefundModal(null)} />
-      )}
-      {teamModal !== null && (
-        <TeamModal
-          initial={teamModal}
-          onClose={()=>setTeamModal(null)} />
-      )}
-
-      <CommandPalette
-        open={cmdOpen}
-        onClose={()=>setCmdOpen(false)}
-        onNavigate={navigate} />
-
-      {/* ── Background glow ── */}
-      <div style={{ position:"fixed",inset:0,pointerEvents:"none",zIndex:0,
-        background:`
-          radial-gradient(ellipse 80% 50% at 20% 0%,  rgba(59,130,246,0.05) 0%, transparent 60%),
-          radial-gradient(ellipse 60% 40% at 80% 100%, rgba(139,92,246,0.04) 0%, transparent 60%)
-        ` }} />
-
-      {/* ── Shell ── */}
+      {projectModal !== null && <ProjectModal initial={projectModal} teamMembers={team} onClose={()=>setProjectModal(null)} />}
+      {taskModal !== null && <TaskModal initial={taskModal} projects={projects} teamMembers={team} onClose={()=>setTaskModal(null)} />}
+      {auditModal !== null && <AuditModal initial={auditModal} projects={projects} onClose={()=>setAuditModal(null)} />}
+      {stateModal !== null && <StateModal initial={stateModal} onClose={()=>setStateModal(null)} />}
+      {refundModal !== null && <RefundModal initial={refundModal} projects={projects} onClose={()=>setRefundModal(null)} />}
+      {teamModal !== null && <TeamModal initial={teamModal} onClose={()=>setTeamModal(null)} />}
+      <CommandPalette open={cmdOpen} onClose={()=>setCmdOpen(false)} onNavigate={navigate} />
       <div style={{ display:"flex",height:"100vh",position:"relative",zIndex:1 }}>
-        <Sidebar
-          active={activeView}
-          onNav={navigate}
-          collapsed={sidebarCollapsed}
-          onToggle={()=>setSidebarCollapsed(c=>!c)} />
-        <div style={{ flex:1,display:"flex",flexDirection:"column",
-          overflow:"hidden",background:T.bg0 }}>
-          <TopBar onCommand={()=>setCmdOpen(true)} activeView={activeView} onSignOut={handleSignOut} />
+        <Sidebar active={activeView} onNav={navigate} collapsed={sidebarCollapsed} onToggle={()=>setSidebarCollapsed(c=>!c)} />
+        <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:T.bg0 }}>
+          <TopBar onCommand={()=>setCmdOpen(true)} activeView={activeView} onSignOut={()=>signOut(auth)} />
           <main style={{ flex:1,overflow:"hidden" }}>
-            {renderView()}
+            {activeView === "dashboard" && <DashboardView onNavigate={navigate} projects={projects} audits={audits} team={team} />}
+            {activeView === "projects" && <ProjectsView projects={projects} team={team} onEdit={setProjectModal} onDelete={deleteProject} />}
+            {activeView === "tasks" && <TasksView tasks={tasks} projects={projects} team={team} onEdit={setTaskModal} onDelete={deleteTask} />}
+            {activeView === "states" && <StatesView states={states} projects={projects} onEdit={setStateModal} onDelete={deleteState} />}
+            {activeView === "audits" && <AuditsView audits={audits} projects={projects} onEdit={setAuditModal} onDelete={deleteAudit} />}
+            {activeView === "refunds" && <RefundsView refunds={refunds} projects={projects} onEdit={setRefundModal} onDelete={deleteRefund} />}
+            {activeView === "team" && <TeamView team={team} projects={projects} onAdd={()=>setTeamModal({})} onEdit={setTeamModal} onDelete={deleteTeam} />}
+            {activeView === "research" && <ResearchView />}
+            {activeView === "reports" && <ReportsView />}
+            {activeView === "copilot" && <CopilotView />}
           </main>
         </div>
       </div>
-
-      {/* ── FAB ── */}
-      <button className="btn-primary" title="Quick Add"
-        onClick={handleNew}
-        style={{ position:"fixed",bottom:28,right:28,width:52,height:52,
-          borderRadius:"50%",fontSize:22,display:"flex",alignItems:"center",
-          justifyContent:"center",
-          boxShadow:`0 8px 32px ${T.blueGlow}, 0 4px 16px rgba(0,0,0,0.5)`,
-          zIndex:100,border:"none",animation:"glow 3s ease-in-out infinite" }}>⊕</button>
+      <button className="btn-primary" title="Quick Add" onClick={handleNew} style={{ position:"fixed",bottom:28,right:28,width:52,height:52,borderRadius:"50%",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 8px 32px ${T.blueGlow}`,zIndex:100,border:"none" }}>⊕</button>
     </>
   );
 }
