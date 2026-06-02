@@ -4,7 +4,7 @@ import {
   onSnapshot, serverTimestamp, writeBatch,
   query, orderBy,
 } from "firebase/firestore";
-import { db } from "./firebase";
+export { db } from "./firebase";
 
 // ─── COLLECTION REFS ────────────────────────────────────────────────────────
 export const COLS = {
