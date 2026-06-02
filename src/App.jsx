@@ -2423,7 +2423,10 @@ export default function App() {
           </main>
         </div>
       </div>
-      <button className="btn-primary" title="Quick Add" onClick={handleNew} style={{ position:"fixed",bottom:28,right:28,width:52,height:52,borderRadius:"50%",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 8px 32px ${T.blueGlow}`,zIndex:100,border:"none" }}>⊕</button>
+      {/* Only show the Quick Add button if we are NOT on the states tab */}
+      {activeView !== "states" && (
+        <button className="btn-primary" title="Quick Add" onClick={handleNew} style={{ position:"fixed",bottom:28,right:28,width:52,height:52,borderRadius:"50%",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 8px 32px ${T.blueGlow}`,zIndex:100,border:"none" }}>⊕</button>
+      )}
     </>
   );
 }
