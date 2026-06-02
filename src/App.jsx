@@ -3,6 +3,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import AuthScreen from "./Auth";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { db, COLS, subscribe, createDoc, updateDocById, deleteDocById, seedCollection } from "./db";
+import { collection, query, where, getDocs, writeBatch } from "firebase/firestore";
 
 // ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
 const T = {
@@ -53,8 +54,6 @@ const SEED_STATES = [
   { state:"OK", nexus:"Physical+Economic", status:"Registered", exposure:330000, filings:"Monthly", risk:"Medium" },
   { state:"WA", nexus:"Economic", status:"Registered", exposure:175000, filings:"Monthly", risk:"Low" },
 ];
-const SEED_AUDITS = [];
-const SEED_REFUNDS = [];
 
 // ─── STATIC CONFIG ────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
@@ -373,10 +372,6 @@ const GlobalStyles = () => (
     ::-webkit-scrollbar-thumb{background:${T.bg4};border-radius:4px}
     ::-webkit-scrollbar-thumb:hover{background:${T.text3}}
     *{scrollbar-width:thin;scrollbar-color:${T.bg4} transparent}
-    @keyframes fadeUp {from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-    @keyframes pulse {0%,100%{opacity:1}50%{opacity:0.45}}
-    @keyframes glow {0%,100%{box-shadow:0 0 12px ${T.blueGlow}}50%{box-shadow:0 0 28px rgba(59,130,246,0.45)}}
-    @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
     .fadeUp{animation:fadeUp 0.38s ease forwards}
     .hover-lift{transition:transform 0.2s ease,box-shadow 0.2s ease}
     .hover-lift:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(0,0,0,0.45)}
@@ -547,8 +542,30 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
         ? form.states.split(",").map(s=>s.trim()).filter(Boolean) : form.states,
       assignedTeam: form.assignedTeam,
     };
-    if (form.id) await updateDocById(COLS.projects, form.id, data);
-    else await createDoc(COLS.projects, data);
+    
+    if (form.id) {
+      await updateDocById(COLS.projects, form.id, data);
+      
+      // ── CASCADE STATUS TO UNDERLYING KANBAN TASKS ──
+      // If the project macro-status aligns with dashboard Kanban steps, synchronize them.
+      if (TASK_COLS.includes(form.status)) {
+        try {
+          const qTasks = query(collection(db, COLS.tasks), where("project", "==", form.client));
+          const querySnap = await getDocs(qTasks);
+          if (!querySnap.empty) {
+            const batch = writeBatch(db);
+            querySnap.docs.forEach(taskDoc => {
+              batch.update(taskDoc.ref, { status: form.status, updatedAt: new Date() });
+            });
+            await batch.commit();
+          }
+        } catch (err) {
+          console.error("Failed to cascade status changes to individual tasks:", err);
+        }
+      }
+    } else {
+      await createDoc(COLS.projects, data);
+    }
     setSaving(false);
     onClose();
   };
@@ -557,7 +574,7 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
     <Modal title={form.id?"Edit Project":"New Project"} onClose={onClose} onSave={save} saving={saving}>
       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
         <Field label="Client Name">
-          <input style={inputStyle()} value={form.client} onChange={e=>set("client",e.target.value)} placeholder="e.g. Acme Corp" />
+          <input style={inputStyle()} value={form.client} onChange={e=>set("client",e.target.value)} placeholder="e.g. Acme Corp" disabled={!!form.id} />
         </Field>
         <Field label="Billing Type">
           <select style={inputStyle()} value={form.billingType} onChange={e=>set("billingType",e.target.value)}>
@@ -589,8 +606,8 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
             {["Critical","High","Medium","Low"].map(o=><option key={o}>{o}</option>)}
           </select>
         </Field>
-        <Field label="Status">
-          <select style={inputStyle()} value={form.status} onChange={e=>set("status",e.target.value)}>
+        <Field label="Status (Cascades to Kanban Board)">
+          <select style={inputStyle({ border:`1px solid ${T.blue}88` })} value={form.status} onChange={e=>set("status",e.target.value)}>
             {PROJECT_STATUSES.map(o=><option key={o}>{o}</option>)}
           </select>
         </Field>
@@ -690,6 +707,8 @@ const TaskModal = ({ initial, onClose, projects, teamMembers }) => {
               const p = projects.find(px => px.client === v);
               set("project", v);
               if (p?.due && !form.due) set("due", p.due);
+              // Auto-sync task column alignment with custom macro project status configurations
+              if (p?.status && TASK_COLS.includes(p.status)) set("status", p.status);
             }}
             placeholder="Search project…"
             getLabel={p => p.client}
@@ -697,7 +716,7 @@ const TaskModal = ({ initial, onClose, projects, teamMembers }) => {
               <span style={{ display:"flex",alignItems:"center",gap:6 }}>
                 <span style={{ color:statusColor(p.status),fontSize:10 }}>●</span>
                 <span>{p.client}</span>
-                {!compact && <span style={{ color:T.text3 }}>— {p.type}</span>}
+                {!compact && <span style={{ color:T.text3 }}>— Status: {p.status}</span>}
               </span>
             )} />
         </Field>
@@ -723,7 +742,7 @@ const TaskModal = ({ initial, onClose, projects, teamMembers }) => {
             {["Critical","High","Medium","Low"].map(o=><option key={o}>{o}</option>)}
           </select>
         </Field>
-        <Field label="Status">
+        <Field label="Status (Kanban Lane)">
           <select style={inputStyle()} value={form.status} onChange={e=>set("status",e.target.value)}>
             {TASK_COLS.map(o=><option key={o}>{o}</option>)}
           </select>
@@ -1399,9 +1418,9 @@ const ProjectsView = ({ projects, team, onEdit, onDelete }) => {
                 <span style={{ fontSize:11,color:(p.open||0)>10?T.amber:T.text3 }}>{p.open||0} open</span>
               </div>
               <div style={{ display:"flex",gap:6 }}>
-                <button className="btn-ghost"
-                  style={{ fontSize:11,padding:"3px 10px",borderRadius:6 }}
-                  onClick={()=>onEdit(p)}>Edit</button>
+                <button className="btn-primary"
+                  style={{ fontSize:11,padding:"3px 12px",borderRadius:6 }}
+                  onClick={()=>onEdit(p)}>Modify Status</button>
                 <button className="btn-ghost"
                   style={{ fontSize:11,padding:"3px 10px",borderRadius:6,
                     borderColor:`${T.crimson}40`,color:T.crimson }}
@@ -1428,7 +1447,7 @@ const TasksView = ({ tasks, projects, team, onEdit, onDelete }) => {
   return (
     <div style={{ padding:"28px 32px",height:"100%",display:"flex",
       flexDirection:"column",gap:20,overflow:"hidden" }}>
-      <SectionHeader title="Task Board" sub={`${tasks.length} active tasks · Kanban view`} />
+      <SectionHeader title="Task Board" sub={`${tasks.length} active tasks · Kanban board responds dynamically to Project updates`} />
       <div style={{ display:"flex",gap:12,overflowX:"auto",flex:1,paddingBottom:8 }}>
         {TASK_COLS.map(col=>(
           <div key={col} style={{ minWidth:280,display:"flex",flexDirection:"column" }}>
@@ -1452,7 +1471,7 @@ const TasksView = ({ tasks, projects, team, onEdit, onDelete }) => {
                       lineHeight:1.4,flex:1,paddingRight:8 }}>{t.title}</span>
                     <Badge label={t.priority} color={priorityColor(t.priority)} />
                   </div>
-                  <div style={{ fontSize:11,color:T.text3,marginBottom:10 }}>{t.project}</div>
+                  <div style={{ fontSize:11,color:T.text2,marginBottom:10,fontWeight:600 }}>💼 {t.project}</div>
                   <div style={{ display:"flex",justifyContent:"space-between",
                     alignItems:"center",marginBottom:10 }}>
                     <div style={{ display:"flex",alignItems:"center",gap:6 }}>
@@ -1967,7 +1986,7 @@ const TeamModal = ({ initial, onClose }) => {
         <Field label="Avatar Color">
           <div style={{ display:"flex",gap:6,flexWrap:"wrap",paddingTop:4 }}>
             {TEAM_COLORS.map(c=>(
-              <button key={c} type="button" onClick={()=>set("color",c)} style={{ width:26,height:26,borderRadius:"50%",background:c,border:`3px solid ${form.color===c?"#fff":"transparent"}`,cursor:"pointer" }} />
+              <button key={c} type="button" onClick={()=>set("color",c)} style={{ width:26,height:26,borderRadius:"50%",background:c,border:`3px solid ${form.color===c?"#fff":"transparent"}`,cursor:"pointer"} } />
             ))}
           </div>
         </Field>
@@ -2180,8 +2199,8 @@ export default function App() {
 
   const [projectModal, setProjectModal] = useState(null);
   const [taskModal, setTaskModal] = useState(null);
-  const [auditModal, setAuditModal] = useState(null);
-  const [stateModal, setStateModal] = useState(null);
+  const [auditModal,   setAuditModal] = useState(null);
+  const [stateModal,   setStateModal] = useState(null);
   const [refundModal, setRefundModal] = useState(null);
   const [teamModal, setTeamModal] = useState(null);
 
