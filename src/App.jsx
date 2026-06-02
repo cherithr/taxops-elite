@@ -4,6 +4,7 @@ import AuthScreen from "./Auth";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { db, COLS, subscribe, createDoc, updateDocById, deleteDocById, seedCollection } from "./db";
 import { collection, query, where, getDocs, writeBatch } from "firebase/firestore";
+import CopilotView from "./copilotview";
 
 // ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
 const T = {
@@ -115,13 +116,7 @@ const REPORT_LIST = [
   { title:"Project Profitability", desc:"Revenue, write-offs, realization by engagement", icon:"⬡", color:T.violet },
   { title:"SLA Compliance Report", desc:"Deadline adherence and turnaround analysis", icon:"⏱", color:T.cyan },
 ];
-const COPILOT_RESPONSES = {
-  nexus: "Based on your current portfolio, **StellarNet Logistics** has the highest nexus risk. They have economic nexus in CA (>$500K threshold exceeded Q3 2023) with no current registration. Recommend immediate voluntary disclosure to minimize exposure (~$890K at risk).",
-  audit: "Your most time-critical audit is **BlueRidge TX** — deadline imminent. The IDR Batch 3 response covers $3.1M in assessed tax. Key arguments: (1) manufacturing exemption on packaging equipment, (2) resale exemption documentation gaps fixable via retroactive certificates.",
-  refund: "Top refund opportunities:\n1. **Meridian Energy Corp TX** — $780K remaining unclaimed\n2. **Ozark Resources AR** — $670K filed, pending approval\n3. **Potential** — Cascade WY may have $400K+ in severance overpayments (2018-2019, pre-audit period)",
-  risk: "Portfolio risk summary:\n🔴 **Critical (3):** BlueRidge TX, Cascade WY, StellarNet CA\n🟡 **High (1):** Meridian Energy TX\n🟢 **Medium-Low (2):** Ozark AR, Pinnacle Retail\n\nRecommend escalating Cascade WY — $7.8M exposure with immediate operational attention required.",
-  default: "That's a great question. Based on your current engagement data, I'd recommend reviewing your state exposure matrix and ensuring all IDR deadlines are calendared. Would you like me to generate a risk-prioritized action list for this week?",
-};
+
 const QUICK_PROMPTS = [
   "Analyze my nexus risk exposure","What's my most critical audit?",
   "Show refund opportunities","Portfolio risk summary",
@@ -2140,58 +2135,6 @@ const ReportsView = () => (
   </div>
 );
 
-// ─── COPILOT VIEW ─────────────────────────────────────────────────────────────
-const CopilotView = () => {
-  const [messages, setMessages] = useState([{
-    role:"assistant",
-    text:"Hello! I'm **Tax Copilot**, your AI assistant for indirect tax operations. What would you like to explore today?",
-  }]);
-  const [input, setInput] = useState("");
-  const [thinking, setThinking] = useState(false);
-  const bottomRef = useRef();
-  const send = useCallback((override)=>{
-    const userMsg=(override??input).trim();
-    if(!userMsg)return;
-    setMessages(prev=>[...prev,{ role:"user",text:userMsg }]);
-    setInput("");
-    setThinking(true);
-    setTimeout(()=>{
-      const key=Object.keys(COPILOT_RESPONSES).find(k=>userMsg.toLowerCase().includes(k))||"default";
-      setMessages(prev=>[...prev,{ role:"assistant",text:COPILOT_RESPONSES[key] }]);
-      setThinking(false);
-    },1200);
-  },[input]);
-  useEffect(()=>{ bottomRef.current?.scrollIntoView({ behavior:"smooth" }); },[messages,thinking]);
-  return (
-    <div style={{ padding:"28px 32px",height:"100%",display:"flex", flexDirection:"column",overflow:"hidden" }}>
-      <div style={{ marginBottom:20,flexShrink:0 }}>
-        <div style={{ display:"flex",alignItems:"center",gap:12 }}>
-          <div style={{ width:40,height:40,borderRadius:12,flexShrink:0, background:`linear-gradient(135deg,${T.violet},${T.blue})`, display:"flex",alignItems:"center",justifyContent:"center", fontSize:18,boxShadow:`0 4px 20px ${T.violetGlow}`, animation:"glow 3s ease-in-out infinite" }}>✦</div>
-          <div>
-            <h2 style={{ fontSize:18,fontWeight:700,color:T.text0 }}>Tax Copilot</h2>
-            <p style={{ fontSize:12,color:T.text3 }}>AI-powered indirect tax intelligence · Powered by GPT-4</p>
-          </div>
-        </div>
-      </div>
-      <div style={{ flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:16,paddingBottom:8 }}>
-        {messages.map((m,i)=>(
-          <div key={i} className="fadeUp" style={{ display:"flex",gap:12,justifyContent:m.role==="user"?"flex-end":"flex-start" }}>
-            <div style={{ maxWidth:"75%", background:m.role==="user"?`linear-gradient(135deg,${T.blue},${T.blueDim})`:T.bg2, border:`1px solid ${m.role==="user"?T.blue:T.border}`, borderRadius:"12px", padding:"14px 16px",fontSize:13,lineHeight:1.65,color:T.text1 }}>
-              {renderMarkdown(m.text)}
-            </div>
-          </div>
-        ))}
-        <div ref={bottomRef} />
-      </div>
-      <div style={{ paddingTop:12,flexShrink:0,display:"flex",flexDirection:"column",gap:10 }}>
-        <div style={{ display:"flex",gap:8 }}>
-          <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Ask Tax Copilot anything…" style={{ flex:1,padding:"12px 16px",borderRadius:12,fontSize:13 }} />
-          <button className="btn-primary" onClick={()=>send()} style={{ padding:"12px 20px",borderRadius:12,fontSize:13,flexShrink:0 }}>Send</button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 export default function App() {
