@@ -2286,6 +2286,8 @@ export default function App() {
   const [stateModal,   setStateModal] = useState(null);
   const [refundModal, setRefundModal] = useState(null);
   const [teamModal, setTeamModal] = useState(null);
+  const [userProfile, setUserProfile] = useState({ name: "Your Account", role: "Senior Manager", initials: "YA" });
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (user) => {
@@ -2353,6 +2355,7 @@ export default function App() {
   return (
     <>
       <GlobalStyles />
+      {profileModalOpen && <ProfileModal initial={userProfile} onClose={()=>setProfileModalOpen(false)} onSave={setUserProfile} />}
       {projectModal !== null && <ProjectModal initial={projectModal} teamMembers={team} onClose={()=>setProjectModal(null)} />}
       {taskModal !== null && <TaskModal initial={taskModal} projects={projects} teamMembers={team} onClose={()=>setTaskModal(null)} />}
       {auditModal !== null && <AuditModal initial={auditModal} projects={projects} onClose={()=>setAuditModal(null)} />}
@@ -2361,9 +2364,9 @@ export default function App() {
       {teamModal !== null && <TeamModal initial={teamModal} onClose={()=>setTeamModal(null)} />}
       <CommandPalette open={cmdOpen} onClose={()=>setCmdOpen(false)} onNavigate={navigate} />
       <div style={{ display:"flex",height:"100vh",position:"relative",zIndex:1 }}>
-        <Sidebar active={activeView} onNav={navigate} collapsed={sidebarCollapsed} onToggle={()=>setSidebarCollapsed(c=>!c)} />
+        <Sidebar active={{id: activeView, profile: userProfile}} onNav={navigate} collapsed={sidebarCollapsed} onToggle={()=>setSidebarCollapsed(c=>!c)} />
         <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:T.bg0 }}>
-          <TopBar onCommand={()=>setCmdOpen(true)} activeView={activeView} onSignOut={()=>signOut(auth)} />
+          <TopBar onCommand={()=>setCmdOpen(true)} activeView={activeView} onSignOut={()=>signOut(auth)} profile={userProfile} onEditProfile={() => setProfileModalOpen(true)} />
           <main style={{ flex:1,overflow:"hidden" }}>
             {activeView === "dashboard" && <DashboardView onNavigate={navigate} projects={projects} audits={audits} team={team} />}
             {activeView === "projects" && <ProjectsView projects={projects} team={team} onEdit={setProjectModal} onDelete={deleteProject} />}
