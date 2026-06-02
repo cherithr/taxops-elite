@@ -252,6 +252,138 @@ const SearchableSelect = ({ options, value, onChange, placeholder = "Search…",
   );
 };
 
+// ─── SEARCHABLE MULTI-SELECT ─────────────────────────────────────────────────
+const SearchableMultiSelect = ({ options, value = [], onChange, placeholder = "Search…", getLabel, renderOption }) => {
+  const [open,  setOpen]  = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const ref = React.useRef(null);
+
+  React.useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const getL     = opt => getLabel ? getLabel(opt) : (typeof opt === "string" ? opt : opt.name || "");
+  const filtered = options.filter(o => getL(o).toLowerCase().includes(query.toLowerCase()));
+  const toggle   = label => {
+    const next = value.includes(label) ? value.filter(v => v !== label) : [...value, label];
+    onChange(next);
+  };
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      {/* ── Trigger button ── */}
+      <button type="button"
+        onClick={() => { setOpen(o => !o); setQuery(""); }}
+        style={{
+          width: "100%", padding: "8px 12px", borderRadius: 8, cursor: "pointer",
+          background: T.bg3, border: `1px solid ${open ? T.blue : T.border}`,
+          color: value.length ? T.text0 : T.text3, fontSize: 13, fontFamily: "inherit",
+          textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between",
+          boxShadow: open ? `0 0 0 3px ${T.blueGlow}` : "none", transition: "all 0.15s", minHeight: 38,
+        }}>
+        <span style={{ flex: 1, overflow: "hidden" }}>
+          {value.length === 0
+            ? placeholder
+            : (
+              <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {value.map(v => (
+                  <span key={v} style={{
+                    background: `${T.blue}22`, color: T.blue, border: `1px solid ${T.blue}44`,
+                    borderRadius: 5, padding: "1px 7px", fontSize: 11, fontWeight: 600,
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                  }}>
+                    {v}
+                    <span
+                      onMouseDown={e => { e.stopPropagation(); toggle(v); }}
+                      style={{ cursor: "pointer", opacity: 0.7, fontSize: 10, lineHeight: 1 }}>✕</span>
+                  </span>
+                ))}
+              </span>
+            )
+          }
+        </span>
+        <span style={{ color: T.text3, fontSize: 10, flexShrink: 0, marginLeft: 6 }}>{open ? "▲" : "▼"}</span>
+      </button>
+
+      {/* ── Dropdown panel ── */}
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 9999,
+          background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 10,
+          boxShadow: "0 16px 48px rgba(0,0,0,0.6)", overflow: "hidden",
+        }}>
+          {/* Search input */}
+          <div style={{ padding: "8px 8px 4px", borderBottom: `1px solid ${T.border}` }}>
+            <input
+              autoFocus
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Type to filter…"
+              style={{
+                width: "100%", padding: "6px 10px", borderRadius: 6, fontSize: 12,
+                background: T.bg3, border: `1px solid ${T.border}`, color: T.text0,
+                outline: "none", fontFamily: "inherit",
+              }} />
+          </div>
+          {/* Selection count */}
+          {value.length > 0 && (
+            <div style={{ padding: "6px 12px", fontSize: 11, color: T.blue,
+              borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between" }}>
+              <span>{value.length} selected</span>
+              <button type="button" onClick={() => onChange([])}
+                style={{ background: "none", border: "none", color: T.text3, cursor: "pointer",
+                  fontSize: 11, fontFamily: "inherit" }}>Clear all</button>
+            </div>
+          )}
+          {/* Options list */}
+          <div style={{ maxHeight: 220, overflowY: "auto" }}>
+            {filtered.length === 0 && (
+              <div style={{ padding: "12px 14px", fontSize: 12, color: T.text3 }}>No results</div>
+            )}
+            {filtered.map((opt, i) => {
+              const label    = getL(opt);
+              const selected = value.includes(label);
+              return (
+                <button key={i} type="button"
+                  onClick={() => toggle(label)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    width: "100%", padding: "9px 12px",
+                    background: selected ? `${T.blue}18` : "transparent",
+                    color: selected ? T.blue : T.text1, fontSize: 12,
+                    fontFamily: "inherit", border: "none", cursor: "pointer", textAlign: "left",
+                    transition: "background 0.1s",
+                  }}
+                  onMouseEnter={e => { if (!selected) e.currentTarget.style.background = T.bg3; }}
+                  onMouseLeave={e => { if (!selected) e.currentTarget.style.background = "transparent"; }}>
+                  {/* Checkbox */}
+                  <span style={{
+                    width: 16, height: 16, borderRadius: 4, flexShrink: 0, display: "inline-flex",
+                    alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700,
+                    background: selected ? T.blue : "transparent",
+                    border: `2px solid ${selected ? T.blue : T.border}`,
+                    color: "#fff", transition: "all 0.1s",
+                  }}>{selected ? "✓" : ""}</span>
+                  {renderOption ? renderOption(opt, false) : label}
+                </button>
+              );
+            })}
+          </div>
+          {/* Done button */}
+          <div style={{ padding: "8px 12px", borderTop: `1px solid ${T.border}`, textAlign: "right" }}>
+            <button type="button" onClick={() => setOpen(false)}
+              style={{ background: T.blue, color: "#fff", border: "none", borderRadius: 7,
+                padding: "6px 18px", fontSize: 12, fontFamily: "inherit", cursor: "pointer",
+                fontWeight: 600 }}>Done</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
 const GlobalStyles = () => (
   <style>{`
@@ -427,15 +559,6 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
   const [saving, setSaving] = useState(false);
   const set = (k,v) => setForm(p=>({...p,[k]:v}));
 
-  // multi-select team toggle
-  const toggleTeam = (name) => {
-    set("assignedTeam",
-      form.assignedTeam.includes(name)
-        ? form.assignedTeam.filter(n=>n!==name)
-        : [...form.assignedTeam, name]
-    );
-  };
-
   const save = async () => {
     if (!form.client.trim()) return;
     setSaving(true);
@@ -533,36 +656,32 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
           )} />
       </Field>
 
-      {/* ── Assigned Team (multi-select) ── */}
-      <Field label="Assigned Team (select multiple)">
-        <div style={{ display:"flex",flexWrap:"wrap",gap:6,padding:"8px",
-          background:T.bg3,borderRadius:8,border:`1px solid ${T.border}`,minHeight:44 }}>
-          {teamMembers.length === 0 && (
-            <span style={{ fontSize:12,color:T.text3 }}>No team members yet — add staff first</span>
-          )}
-          {teamMembers.map(m => {
-            const selected = form.assignedTeam.includes(m.name);
-            return (
-              <button key={m.id||m.name} type="button"
-                onClick={()=>toggleTeam(m.name)}
-                style={{
-                  padding:"4px 10px",borderRadius:6,fontSize:12,cursor:"pointer",
-                  fontFamily:"inherit",transition:"all 0.15s",
-                  background: selected ? T.blue : T.bg4,
-                  color:      selected ? "#fff"  : T.text2,
-                  border:     `1px solid ${selected ? T.blue : T.border}`,
-                  fontWeight: selected ? 600 : 400,
-                }}>
-                {selected ? "✓ " : ""}{m.name}
-              </button>
-            );
-          })}
-        </div>
-        {form.assignedTeam.length > 0 && (
-          <div style={{ marginTop:4,fontSize:11,color:T.text3 }}>
-            {form.assignedTeam.length} member{form.assignedTeam.length>1?"s":""} assigned: {form.assignedTeam.join(", ")}
-          </div>
-        )}
+      {/* ── Assigned Team (searchable multi-select dropdown) ── */}
+      <Field label="Assigned Team">
+        {teamMembers.length === 0
+          ? <div style={{ fontSize:12,color:T.text3,padding:"10px 12px",
+              background:T.bg3,borderRadius:8,border:`1px solid ${T.border}` }}>
+              No team members yet — add staff first under Team &amp; Workload
+            </div>
+          : <SearchableMultiSelect
+              options={teamMembers}
+              value={form.assignedTeam}
+              onChange={v => set("assignedTeam", v)}
+              placeholder="Search and select team members…"
+              getLabel={m => m.name}
+              renderOption={(m) => (
+                <span style={{ display:"flex",alignItems:"center",gap:8 }}>
+                  <span style={{
+                    width:22,height:22,borderRadius:"50%",flexShrink:0,
+                    background:m.color||T.blue,
+                    display:"inline-flex",alignItems:"center",justifyContent:"center",
+                    fontSize:9,fontWeight:700,color:"#fff",
+                  }}>{(m.avatar||m.name?.slice(0,2)||"?").toUpperCase()}</span>
+                  <span>{m.name}</span>
+                  <span style={{ color:T.text3,marginLeft:2 }}>— {m.role}</span>
+                </span>
+              )} />
+        }
       </Field>
 
       <Field label="States (comma-separated)">
@@ -1464,8 +1583,9 @@ const deriveStatesFromProjects = (projects) => {
     ...e,
     taxTypes: [...e.taxTypes].filter(Boolean).join(", "),
     activeProjects: e.projects.length,
-    hasEscalated: [...e.statuses].some(s => s === "Escalated" || s === "Under Audit"),
-    hasPending:   [...e.statuses].some(s => s.includes("Waiting") || s.includes("Review")),
+    hasEscalated: [...e.statuses].some(s => s === "Escalated" || s === "Under Audit" || s === "Audit Defense"),
+    hasPending:   [...e.statuses].some(s => s.includes("Waiting") || s.includes("Review") || s === "In Progress"),
+    allStatuses:  [...e.statuses],
   })).sort((a, b) => (b.exposure - a.exposure));
 };
 
@@ -1484,7 +1604,14 @@ const StatesView = ({ states: _dbStates, projects, onEdit, onDelete }) => {
     ...d,
     nexus:   dbMap[d.state]?.nexus   || "—",
     filings: dbMap[d.state]?.filings || "—",
-    status:  dbMap[d.state]?.status  || (d.hasEscalated ? "Under Audit" : d.hasPending ? "Review Pending" : "Active"),
+    status:  dbMap[d.state]?.status  || (
+      d.hasEscalated ? "Under Audit" :
+      d.hasPending   ? "In Progress" :
+      d.allStatuses?.includes("Planning") ? "Planning" :
+      d.allStatuses?.includes("Filed")    ? "Filed"    :
+      d.allStatuses?.includes("Closed")   ? "Closed"   :
+      "Active"
+    ),
     dbId:    dbMap[d.state]?.id,
   })), [derived, dbMap]);
 
@@ -1612,24 +1739,34 @@ const StatesView = ({ states: _dbStates, projects, onEdit, onDelete }) => {
 };
 
 // ─── AUDITS VIEW ──────────────────────────────────────────────────────────────
-// Derive audit-like entries from projects that are Escalated or have audits
+// Derive audit entries from ANY project that is audit-related
+// Triggers: type = "Audit Defense", OR status = "Escalated" or "Under Audit"
+const AUDIT_PROJECT_TYPES    = ["Audit Defense"];
+const AUDIT_PROJECT_STATUSES = ["Escalated", "Under Audit"];
 const deriveAuditsFromProjects = (projects) =>
   projects
-    .filter(p => p.status === "Escalated" || p.type === "Audit Defense")
+    .filter(p =>
+      AUDIT_PROJECT_TYPES.includes(p.type) ||
+      AUDIT_PROJECT_STATUSES.includes(p.status)
+    )
     .flatMap(p =>
-      (p.states || ["—"]).map(st => ({
-        _derived: true,
+      (p.states && p.states.length > 0 ? p.states : ["—"]).map(st => ({
+        _derived:  true,
         _projectId: p.id,
-        client:   p.client,
-        state:    st,
-        agency:   `${st} Dept of Revenue`,
-        period:   p.period || "—",
-        type:     p.type === "Audit Defense" ? "Audit Defense" : "Full Audit",
-        exposure: Math.round((p.exposure || 0) / Math.max(1, (p.states||[]).length)),
-        deadline: p.due || null,
-        status:   p.status === "Escalated" ? "Active" : "Active",
-        tax:      p.tax || "",
-        leadStaff:p.leadStaff || "",
+        client:    p.client,
+        state:     st,
+        agency:    st !== "—" ? `${st} Dept of Revenue` : "Unknown Agency",
+        period:    p.period || "—",
+        type:      p.type === "Audit Defense" ? "Audit Defense" : "Full Audit",
+        exposure:  Math.round((p.exposure || 0) / Math.max(1, (p.states || []).length)),
+        deadline:  p.due || null,
+        status:    p.status === "Escalated" ? "Active"
+                 : p.status === "Responded" ? "Responded"
+                 : p.status === "Closed"    ? "Closed"
+                 : "Active",
+        tax:       p.tax || "",
+        leadStaff: p.leadStaff || "",
+        assignedTeam: p.assignedTeam || [],
       }))
     );
 
@@ -1782,8 +1919,11 @@ const deriveRefundsFromProjects = (projects) =>
         filed:     0,
         recovered: 0,
         pct:       0,
-        status:    p.status === "Filed" ? "Filed — Pending Approval"
-                 : p.status === "Closed" ? "Fully Recovered"
+        status:    p.status === "Filed"          ? "Filed — Pending Approval"
+                 : p.status === "Closed"         ? "Fully Recovered"
+                 : p.status === "Responded"      ? "Partial Recovery"
+                 : p.status === "In Progress"    ? "In Preparation"
+                 : p.status === "Review Phase"   ? "Under Review"
                  : "Identified — Not Yet Filed",
         leadStaff: p.leadStaff || "",
         due:       p.due || null,
@@ -2408,7 +2548,7 @@ export default function App() {
   },[activeView]);
 
   // ── View renderer ─────────────────────────────────────────────────────────
-  const currentView = useMemo(()=>{
+  const renderView = () => {
     switch(activeView){
       case "dashboard": return (
         <DashboardView
@@ -2472,8 +2612,7 @@ export default function App() {
           team={team} />
       );
     }
-  },[activeView,navigate,projects,tasks,team,states,audits,refunds,
-     deleteProject,deleteTask,deleteState,deleteAudit,deleteRefund,deleteTeam]);
+  };
 
   // ── Sign-out handler ─────────────────────────────────────────────────────
   const handleSignOut = useCallback(() => signOut(auth), []);
@@ -2581,7 +2720,7 @@ export default function App() {
           overflow:"hidden",background:T.bg0 }}>
           <TopBar onCommand={()=>setCmdOpen(true)} activeView={activeView} onSignOut={handleSignOut} />
           <main style={{ flex:1,overflow:"hidden" }}>
-            {currentView}
+            {renderView()}
           </main>
         </div>
       </div>
