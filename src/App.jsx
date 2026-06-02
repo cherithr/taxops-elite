@@ -1955,7 +1955,7 @@ const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
     return m;
   }, [refunds]);
 
-// 2. Strictly use live project estimates, but merge in your manual progress edits
+  // 2. Properly merge live project estimates with manual database edits
   const merged = useMemo(() => {
     const derivedRows = derived.map(d => {
       const dbRef = dbMap[`${d.client}|${d.state}`];
@@ -1969,10 +1969,6 @@ const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
         _derived: true 
       };
     });
-
-    // We no longer allow standalone manual rows. All refunds MUST come from Projects.
-    return derivedRows.sort((a, b) => (b.estimated || 0) - (a.estimated || 0));
-  }, [derived, dbMap]);
 
     const derivedKeys = new Set(derived.map(d => `${d.client}|${d.state}`));
     const standaloneRows = refunds.filter(r => !derivedKeys.has(`${r.client}|${r.state}`));
