@@ -1607,6 +1607,7 @@ const deriveStatesFromProjects = (projects) => {
           taxTypes: new Set(),
           statuses: new Set(),
           dueDate: null,
+          projectNexus: new Set(), // 🟢 NEW: Collects nexus triggers from projects
         };
       }
       const entry = map[abbr];
@@ -1614,6 +1615,12 @@ const deriveStatesFromProjects = (projects) => {
       if(!entry.projects.includes(p.client)) entry.projects.push(p.client);
       entry.taxTypes.add(p.tax || "");
       entry.statuses.add(p.status || "");
+      
+      // 🟢 NEW: Pull the Nexus Focus directly from the project
+      if (p.nexus && p.nexus !== "TBD") {
+        entry.projectNexus.add(p.nexus);
+      }
+
       const RISK_RANK = { Critical: 4, High: 3, Medium: 2, Low: 1 };
       if ((RISK_RANK[p.risk] || 0) > (RISK_RANK[entry.risk] || 0)) entry.risk = p.risk;
       if (p.due && (!entry.dueDate || p.due < entry.dueDate)) entry.dueDate = p.due;
@@ -1626,6 +1633,7 @@ const deriveStatesFromProjects = (projects) => {
     hasEscalated: [...e.statuses].some(s => s === "Escalated" || s === "Under Audit" || s === "Audit Defense"),
     hasPending: [...e.statuses].some(s => s.includes("Waiting") || s.includes("Review") || s === "In Progress"),
     allStatuses: [...e.statuses],
+    derivedNexus: e.projectNexus.size > 0 ? Array.from(e.projectNexus).join(", ") : null, // 🟢 NEW: Pass to tracker
   })).sort((a, b) => (b.exposure - a.exposure));
 };
 
@@ -1643,7 +1651,8 @@ const rows = useMemo(() => {
       const dbState = dbMap[d.state];
       return {
         ...d,
-        nexus: dbState?.nexus || "—",
+        // 🟢 NEW: Prioritize the Project's nexus. If none exists, fallback to State DB, then "—"
+        nexus: d.derivedNexus || dbState?.nexus || "—",
         filings: dbState?.filings || "—",
         status: dbState?.status || (
           d.hasEscalated ? "Under Audit" :
