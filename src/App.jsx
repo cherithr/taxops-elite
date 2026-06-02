@@ -2129,25 +2129,40 @@ const ResearchView = () => {
 };
 
 // ─── REPORTS VIEW ─────────────────────────────────────────────────────────────
-const ReportsView = () => (
-  <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%", display:"flex",flexDirection:"column",gap:20 }}>
-    <SectionHeader title="Executive Reports" sub="Export-ready analytics · PDF · Excel · CSV" />
-    <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14 }}>
-      {REPORT_LIST.map((r,i)=>(
-        <div key={i} className="card hover-lift fadeUp" style={{ padding:"24px",cursor:"pointer", animationDelay:`${i*50}ms`,borderTop:`2px solid ${r.color}33` }}>
-          <div style={{ fontSize:28,marginBottom:14,opacity:0.85 }}>{r.icon}</div>
-          <div style={{ fontSize:14,fontWeight:700,color:T.text0,marginBottom:6 }}>{r.title}</div>
-          <div style={{ fontSize:12,color:T.text3,marginBottom:18,lineHeight:1.55 }}>{r.desc}</div>
-          <div style={{ display:"flex",gap:6 }}>
-            {["PDF","Excel","CSV"].map(fmt=>(
-              <button key={fmt} className="btn-ghost" style={{ fontSize:11,padding:"5px 10px",borderRadius:6,flex:1 }}>{fmt}</button>
-            ))}
+const ReportsView = () => {
+  // Temporary function to handle button clicks
+  const handleExport = (title, format) => {
+    alert(`Export logic triggered!\n\nYou requested the "${title}" report as a ${format} file.\n\n(Data export functionality needs to be wired up here).`);
+  };
+
+  return (
+    <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%", display:"flex",flexDirection:"column",gap:20 }}>
+      <SectionHeader title="Executive Reports" sub="Export-ready analytics · PDF · Excel · CSV" />
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14 }}>
+        {REPORT_LIST.map((r,i)=>(
+          <div key={i} className="card hover-lift fadeUp" style={{ padding:"24px",cursor:"pointer", animationDelay:`${i*50}ms`,borderTop:`2px solid ${r.color}33` }}>
+            <div style={{ fontSize:28,marginBottom:14,opacity:0.85 }}>{r.icon}</div>
+            <div style={{ fontSize:14,fontWeight:700,color:T.text0,marginBottom:6 }}>{r.title}</div>
+            <div style={{ fontSize:12,color:T.text3,marginBottom:18,lineHeight:1.55 }}>{r.desc}</div>
+            <div style={{ display:"flex",gap:6 }}>
+              {["PDF","Excel","CSV"].map(fmt=>(
+                <button 
+                  key={fmt} 
+                  // Added onClick handler here:
+                  onClick={(e) => { e.stopPropagation(); handleExport(r.title, fmt); }} 
+                  className="btn-ghost" 
+                  style={{ fontSize:11,padding:"5px 10px",borderRadius:6,flex:1 }}
+                >
+                  {fmt}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
