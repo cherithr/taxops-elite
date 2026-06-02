@@ -2356,6 +2356,36 @@ export default function App() {
   const [teamModal, setTeamModal] = useState(null);
   const [userProfile, setUserProfile] = useState({ name: "Loading...", role: "", initials: "" });
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  // ─── TEMPORARY DATABASE CLEANUP SCRIPT ───
+  const runDataCleanup = async () => {
+    if (!window.confirm("Run database cleanup to remove hidden Nexus tags from old projects?")) return;
+    
+    try {
+      const snap = await getDocs(collection(db, COLS.projects));
+      const batch = writeBatch(db);
+      let fixedCount = 0;
+
+      snap.forEach(d => {
+        const data = d.data();
+        // If it is NOT a Nexus Study, but it secretly has a nexus value...
+        if (data.type !== "Nexus Study" && data.nexus && data.nexus !== "TBD") {
+          batch.update(d.ref, { nexus: "TBD" }); // ...scrub it clean!
+          fixedCount++;
+        }
+      });
+
+      if (fixedCount > 0) {
+        await batch.commit();
+        alert(`Success! Scrubbed the hidden tags from ${fixedCount} old projects.`);
+        window.location.reload(); // Refresh the page to load the clean data
+      } else {
+        alert("Your database is already clean! No hidden tags found.");
+      }
+    } catch (error) {
+      console.error("Cleanup failed:", error);
+      alert("Database cleanup failed. Check your console log.");
+    }
+  };
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (user) => {
@@ -2461,7 +2491,20 @@ export default function App() {
       <div style={{ display:"flex",height:"100vh",position:"relative",zIndex:1 }}>
         <Sidebar active={activeView} profile={userProfile} onNav={navigate} collapsed={sidebarCollapsed} onToggle={()=>setSidebarCollapsed(c=>!c)} />
         <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:T.bg0 }}>
-          <TopBar onCommand={()=>setCmdOpen(true)} activeView={activeView} onSignOut={()=>signOut(auth)} profile={userProfile} onEditProfile={() => setProfileModalOpen(true)} />
+          <TopBar 
+  onCommand={()=>setCmdOpen(true)} 
+  activeView={activeView} 
+  onSignOut={()=>signOut(auth)} 
+  profile={userProfile} 
+  onEditProfile={() => setProfileModalOpen(true)} 
+/>
+{/* 🔴 TEMPORARY BUTTON - CLICK ONCE THEN DELETE */}
+<button 
+  onClick={runDataCleanup} 
+  style={{ position:"fixed", top:8, right:250, zIndex:9999, background:T.crimson, color:"#fff", padding:"8px 16px", borderRadius:8, fontWeight:"bold", border:"none", cursor:"pointer" }}
+>
+  🧹 Run Database Cleanup
+</button>
           <main style={{ flex:1,overflow:"hidden" }}>
             {activeView === "dashboard" && <DashboardView onNavigate={navigate} projects={projects} audits={audits} team={team} />}
             {activeView === "projects" && <ProjectsView projects={projects} team={team} onEdit={setProjectModal} onDelete={deleteProject} />}
