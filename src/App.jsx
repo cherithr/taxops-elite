@@ -2343,7 +2343,6 @@ export default function App() {
       seedCollection(COLS.projects, SEED_PROJECTS),
       seedCollection(COLS.tasks, SEED_TASKS),
       seedCollection(COLS.team, SEED_TEAM),
-      seedCollection(COLS.states, SEED_STATES),
     ]);
   } catch (error) {
     console.error("🔥 Failed to seed Firebase data:", error);
