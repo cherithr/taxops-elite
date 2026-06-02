@@ -45,16 +45,7 @@ const SEED_TEAM = [
   { name:"Priya Nair", role:"Senior", avatar:"PN", color:T.amber, projects:2, utilization:65, expertise:["CA","NY","NJ"], status:"active" },
   { name:"Marcus Lee", role:"Staff", avatar:"ML", color:"#E879F9", projects:3, utilization:82, expertise:["TX","AR","OK"], status:"active" },
 ];
-const SEED_STATES = [
-  { state:"TX", nexus:"Physical+Economic", status:"Under Audit", exposure:3100000, filings:"Monthly", risk:"Critical" },
-  { state:"CA", nexus:"Economic", status:"Registered", exposure:890000, filings:"Monthly", risk:"High" },
-  { state:"WY", nexus:"Physical", status:"Under Audit", exposure:7800000, filings:"Quarterly", risk:"Critical" },
-  { state:"AR", nexus:"Physical", status:"Refund Pending", exposure:670000, filings:"Quarterly", risk:"Medium" },
-  { state:"NY", nexus:"Economic", status:"Registered", exposure:220000, filings:"Monthly", risk:"Low" },
-  { state:"LA", nexus:"Physical", status:"Registered", exposure:410000, filings:"Monthly", risk:"Medium" },
-  { state:"OK", nexus:"Physical+Economic", status:"Registered", exposure:330000, filings:"Monthly", risk:"Medium" },
-  { state:"WA", nexus:"Economic", status:"Registered", exposure:175000, filings:"Monthly", risk:"Low" },
-];
+
 
 // ─── STATIC CONFIG ────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
