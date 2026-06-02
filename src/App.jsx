@@ -2273,7 +2273,7 @@ export default function App() {
             {activeView === "refunds" && <RefundsView refunds={refunds} projects={projects} onEdit={setRefundModal} onDelete={deleteRefund} />}
             {activeView === "team" && <TeamView team={team} projects={projects} onAdd={()=>setTeamModal({})} onEdit={setTeamModal} onDelete={deleteTeam} />}
             {activeView === "research" && <ResearchView />}
-            {activeView === "reports" && <ReportsView />}
+            {activeView === "reports" && <ReportsView projects={projects} team={team} audits={audits} refunds={refunds} />}
             {activeView === "copilot" && <CopilotView />}
           </main>
         </div>
