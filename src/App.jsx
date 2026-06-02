@@ -1106,11 +1106,11 @@ const Sidebar = ({ active, onNav, collapsed, onToggle }) => (
         <div style={{ width:30,height:30,borderRadius:"50%",flexShrink:0,
           background:`linear-gradient(135deg,${T.violet},${T.blue})`,
           display:"flex",alignItems:"center",justifyContent:"center",
-          fontSize:11,fontWeight:700 }}>YA</div>
+          fontSize:11,fontWeight:700 }}>{active.profile?.initials || "YA"}</div>
         {!collapsed && (
           <div>
-            <div style={{ fontSize:12,fontWeight:600,color:T.text0 }}>Your Account</div>
-            <div style={{ fontSize:10,color:T.text3 }}>Tax Senior</div>
+            <div style={{ fontSize:12,fontWeight:600,color:T.text0 }}>{active.profile?.name || "Your Account"}</div>
+            <div style={{ fontSize:10,color:T.text3 }}>{active.profile?.role || "Senior Manager"}</div>
           </div>
         )}
       </div>
@@ -1119,11 +1119,12 @@ const Sidebar = ({ active, onNav, collapsed, onToggle }) => (
 );
 
 // ─── TOPBAR ───────────────────────────────────────────────────────────────────
-const NotifButton = ({ icon, tip, badge }) => {
+const NotifButton = ({ icon, tip, badge, onClick }) => {
   const [hov, setHov] = useState(false);
   return (
     <div style={{ position:"relative" }} title={tip}>
       <button onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+        onClick={onClick}
         style={{ width:34,height:34,borderRadius:8,cursor:"pointer",fontSize:15,
           background:hov?T.bg4:T.bg3,color:hov?T.text0:T.text2,
           border:`1px solid ${T.border}`,transition:"all 0.15s",
@@ -1137,7 +1138,8 @@ const NotifButton = ({ icon, tip, badge }) => {
     </div>
   );
 };
-const TopBar = ({ onCommand, activeView, onSignOut }) => {
+
+const TopBar = ({ onCommand, activeView, onSignOut, profile, onEditProfile }) => {
   const [hovered, setHovered] = useState(false);
   const [soHov, setSoHov] = useState(false);
   const label = NAV_ITEMS.find(n=>n.id===activeView)?.label || "TaxOps Elite";
@@ -1158,11 +1160,11 @@ const TopBar = ({ onCommand, activeView, onSignOut }) => {
       </button>
       <div style={{ display:"flex",gap:6,alignItems:"center" }}>
         <NotifButton icon="🔔" tip="Notifications" badge={5} />
-        <NotifButton icon="⚙" tip="Settings" />
-        <div style={{ width:34,height:34,borderRadius:"50%",
+        <NotifButton icon="⚙" tip="Settings" onClick={onEditProfile} />
+        <div onClick={onEditProfile} style={{ width:34,height:34,borderRadius:"50%",
           background:`linear-gradient(135deg,${T.violet},${T.blue})`,
           display:"flex",alignItems:"center",justifyContent:"center",
-          fontSize:12,fontWeight:700,cursor:"pointer" }}>YA</div>
+          fontSize:12,fontWeight:700,cursor:"pointer" }}>{profile.initials}</div>
         <button
           onClick={onSignOut}
           onMouseEnter={()=>setSoHov(true)}
@@ -2234,6 +2236,34 @@ const ReportsView = ({ projects, team, audits, refunds }) => {
   );
 };
 
+// ─── PROFILE MODAL ───────────────────────────────────────────────────────────
+const ProfileModal = ({ initial, onClose, onSave }) => {
+  const [form, setForm] = useState(initial);
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  const save = () => {
+    if (!form.name.trim()) return;
+    // Auto-generate initials from the new name (e.g., "John Doe" -> "JD")
+    const initials = form.name.split(" ").map(w => w[0] || "").join("").toUpperCase().slice(0, 2);
+    onSave({ ...form, initials });
+    onClose();
+  };
+
+  return (
+    <Modal title="Edit Your Profile" onClose={onClose} onSave={save} saving={false}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <Field label="Full Name">
+          <input style={inputStyle()} value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. John Doe" />
+        </Field>
+        <Field label="Role / Title">
+          <select style={inputStyle()} value={form.role} onChange={e => set("role", e.target.value)}>
+            {TEAM_POSITIONS.map(p => <option key={p}>{p}</option>)}
+          </select>
+        </Field>
+      </div>
+    </Modal>
+  );
+};
 
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 export default function App() {
