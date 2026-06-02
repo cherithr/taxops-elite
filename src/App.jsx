@@ -145,11 +145,112 @@ const fmt$         = n => n>=1000000?`$${(n/1000000).toFixed(1)}M`:n>=1000?`$${(
 const riskColor    = r => RISK_COLORS[r]  || T.text2;
 const priorityColor= p => RISK_COLORS[p]  || T.text2;
 const statusColor  = s => STATUS_COLS[s]  || T.text2;
+// Auto-calculates days remaining from any ISO date string; negative = overdue
+const daysLeft     = due => {
+  if (!due) return null;
+  const diff = Math.ceil((new Date(due) - new Date()) / 86400000);
+  return diff;
+};
+const daysLabel    = due => {
+  const d = daysLeft(due);
+  if (d === null) return "—";
+  if (d < 0)  return `${Math.abs(d)}d overdue`;
+  if (d === 0) return "Due today";
+  return `${d}d left`;
+};
+const daysColor    = due => {
+  const d = daysLeft(due);
+  if (d === null) return T.text3;
+  if (d < 0)  return T.crimson;
+  if (d < 10) return T.crimson;
+  if (d < 30) return T.amber;
+  return T.emerald;
+};
 const inputStyle   = (extra={}) => ({
   padding:"8px 12px", width:"100%", borderRadius:8,
   background:T.bg3, border:`1px solid ${T.border}`, color:T.text0,
   fontSize:13, outline:"none", fontFamily:"inherit", ...extra,
 });
+
+// ─── SEARCHABLE DROPDOWN ─────────────────────────────────────────────────────
+const SearchableSelect = ({ options, value, onChange, placeholder = "Search…", renderOption, getLabel }) => {
+  const [open,  setOpen]  = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const ref = React.useRef(null);
+
+  // Close on outside click
+  React.useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const getL   = opt => getLabel ? getLabel(opt) : (typeof opt === "string" ? opt : opt.name || "");
+  const filtered = options.filter(o => getL(o).toLowerCase().includes(query.toLowerCase()));
+  const selected = options.find(o => getL(o) === value);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button type="button"
+        onClick={() => { setOpen(o => !o); setQuery(""); }}
+        style={{
+          width: "100%", padding: "8px 12px", borderRadius: 8, cursor: "pointer",
+          background: T.bg3, border: `1px solid ${open ? T.blue : T.border}`,
+          color: value ? T.text0 : T.text3, fontSize: 13, fontFamily: "inherit",
+          textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between",
+          boxShadow: open ? `0 0 0 3px ${T.blueGlow}` : "none", transition: "all 0.15s",
+        }}>
+        <span>{selected ? (renderOption ? renderOption(selected, true) : getL(selected)) : placeholder}</span>
+        <span style={{ color: T.text3, fontSize: 10 }}>{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 9999,
+          background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 10,
+          boxShadow: "0 16px 48px rgba(0,0,0,0.6)", overflow: "hidden",
+        }}>
+          <div style={{ padding: "8px 8px 4px" }}>
+            <input
+              autoFocus
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Type to filter…"
+              style={{
+                width: "100%", padding: "6px 10px", borderRadius: 6, fontSize: 12,
+                background: T.bg3, border: `1px solid ${T.border}`, color: T.text0,
+                outline: "none", fontFamily: "inherit",
+              }} />
+          </div>
+          <div style={{ maxHeight: 200, overflowY: "auto" }}>
+            {filtered.length === 0 && (
+              <div style={{ padding: "10px 12px", fontSize: 12, color: T.text3 }}>No results</div>
+            )}
+            {filtered.map((opt, i) => {
+              const label = getL(opt);
+              const isSelected = label === value;
+              return (
+                <button key={i} type="button"
+                  onClick={() => { onChange(label); setOpen(false); setQuery(""); }}
+                  style={{
+                    display: "block", width: "100%", padding: "8px 12px",
+                    background: isSelected ? `${T.blue}22` : "transparent",
+                    color: isSelected ? T.blue : T.text1, fontSize: 12,
+                    fontFamily: "inherit", border: "none", cursor: "pointer",
+                    textAlign: "left", transition: "background 0.1s",
+                  }}
+                  onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = T.bg3; }}
+                  onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}>
+                  {renderOption ? renderOption(opt, false) : label}
+                  {isSelected && <span style={{ float: "right", color: T.blue }}>✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
 const GlobalStyles = () => (
@@ -410,12 +511,26 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
         </Field>
       </div>
 
-      {/* ── Lead Staff (renamed from Manager) ── */}
+      {/* ── Lead Staff (searchable dropdown) ── */}
       <Field label="Lead Staff">
-        <select style={inputStyle()} value={form.leadStaff} onChange={e=>set("leadStaff",e.target.value)}>
-          <option value="">Select lead…</option>
-          {teamMembers.map(m=><option key={m.id||m.name} value={m.name}>{m.name} — {m.role}</option>)}
-        </select>
+        <SearchableSelect
+          options={teamMembers}
+          value={form.leadStaff}
+          onChange={v => set("leadStaff", v)}
+          placeholder="Search team member…"
+          getLabel={m => m.name}
+          renderOption={(m, compact) => (
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{
+                width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+                background: `linear-gradient(135deg,${m.color||T.blue},${m.color||T.blue}88)`,
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                fontSize: 9, fontWeight: 700, color: "#fff",
+              }}>{(m.avatar || m.name?.slice(0,2) || "?").toUpperCase()}</span>
+              <span>{m.name}</span>
+              {!compact && <span style={{ color: T.text3, marginLeft: 4 }}>— {m.role}</span>}
+            </span>
+          )} />
       </Field>
 
       {/* ── Assigned Team (multi-select) ── */}
@@ -480,16 +595,42 @@ const TaskModal = ({ initial, onClose, projects, teamMembers }) => {
       </Field>
       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
         <Field label="Project">
-          <select style={inputStyle()} value={form.project} onChange={e=>set("project",e.target.value)}>
-            <option value="">Select…</option>
-            {projects.map(p=><option key={p.id} value={p.client}>{p.client}</option>)}
-          </select>
+          <SearchableSelect
+            options={projects}
+            value={form.project}
+            onChange={v => {
+              const p = projects.find(px => px.client === v);
+              set("project", v);
+              if (p?.due && !form.due) set("due", p.due);
+            }}
+            placeholder="Search project…"
+            getLabel={p => p.client}
+            renderOption={(p, compact) => (
+              <span style={{ display:"flex",alignItems:"center",gap:6 }}>
+                <span style={{ color:statusColor(p.status),fontSize:10 }}>●</span>
+                <span>{p.client}</span>
+                {!compact && <span style={{ color:T.text3 }}>— {p.type}</span>}
+              </span>
+            )} />
         </Field>
         <Field label="Assignee">
-          <select style={inputStyle()} value={form.assignee} onChange={e=>set("assignee",e.target.value)}>
-            <option value="">Select…</option>
-            {teamMembers.map(m=><option key={m.id} value={m.name}>{m.name}</option>)}
-          </select>
+          <SearchableSelect
+            options={teamMembers}
+            value={form.assignee}
+            onChange={v => set("assignee", v)}
+            placeholder="Search team member…"
+            getLabel={m => m.name}
+            renderOption={(m, compact) => (
+              <span style={{ display:"flex",alignItems:"center",gap:6 }}>
+                <span style={{ width:18,height:18,borderRadius:"50%",flexShrink:0,
+                  background:m.color||T.blue,display:"inline-flex",alignItems:"center",
+                  justifyContent:"center",fontSize:8,fontWeight:700,color:"#fff" }}>
+                  {(m.avatar||m.name?.slice(0,2)||"?").toUpperCase()}
+                </span>
+                <span>{m.name}</span>
+                {!compact && <span style={{ color:T.text3 }}>— {m.role}</span>}
+              </span>
+            )} />
         </Field>
         <Field label="Priority">
           <select style={inputStyle()} value={form.priority} onChange={e=>set("priority",e.target.value)}>
@@ -516,7 +657,7 @@ const TaskModal = ({ initial, onClose, projects, teamMembers }) => {
 };
 
 // ─── AUDIT MODAL ──────────────────────────────────────────────────────────────
-const AUDIT_DEFAULTS = { client:"", state:"", agency:"", period:"", type:"Full Audit", exposure:0, deadline:"", status:"Active", daysLeft:0 };
+const AUDIT_DEFAULTS = { client:"", state:"", agency:"", period:"", type:"Full Audit", exposure:0, deadline:"", status:"Active" };
 const AuditModal = ({ initial, onClose, projects }) => {
   const [form, setForm] = useState({ ...AUDIT_DEFAULTS, ...initial });
   const [saving, setSaving] = useState(false);
@@ -524,7 +665,7 @@ const AuditModal = ({ initial, onClose, projects }) => {
   const save = async () => {
     if (!form.client.trim()) return;
     setSaving(true);
-    const data = { ...form, exposure:Number(form.exposure)||0, daysLeft:Number(form.daysLeft)||0 };
+    const data = { ...form, exposure:Number(form.exposure)||0 };
     if (form.id) await updateDocById(COLS.audits, form.id, data);
     else         await createDoc(COLS.audits, data);
     setSaving(false);
@@ -534,13 +675,33 @@ const AuditModal = ({ initial, onClose, projects }) => {
     <Modal title={form.id?"Edit Audit Notice":"New Audit Notice"} onClose={onClose} onSave={save} saving={saving}>
       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
         <Field label="Client">
-          <select style={inputStyle()} value={form.client} onChange={e=>set("client",e.target.value)}>
-            <option value="">Select…</option>
-            {projects.map(p=><option key={p.id} value={p.client}>{p.client}</option>)}
-          </select>
+          <SearchableSelect
+            options={projects}
+            value={form.client}
+            onChange={v => {
+              const p = projects.find(px => px.client === v);
+              set("client", v);
+              if (p?.due && !form.deadline) set("deadline", p.due);
+              if (p?.states?.length && !form.state) set("state", p.states[0]);
+              if (p?.exposure && !form.exposure) set("exposure", p.exposure);
+            }}
+            placeholder="Search client…"
+            getLabel={p => p.client}
+            renderOption={(p, compact) => (
+              <span style={{ display:"flex",alignItems:"center",gap:6 }}>
+                <span style={{ color:riskColor(p.risk),fontSize:10 }}>●</span>
+                <span>{p.client}</span>
+                {!compact && <span style={{ color:T.text3 }}>— {p.type}</span>}
+              </span>
+            )} />
         </Field>
         <Field label="State">
-          <input style={inputStyle()} value={form.state} onChange={e=>set("state",e.target.value)} placeholder="TX" />
+          <select style={inputStyle()} value={form.state} onChange={e=>set("state",e.target.value)}>
+            <option value="">Select state…</option>
+            {(projects.find(p=>p.client===form.client)?.states || []).map(s=>(
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
         </Field>
         <Field label="Agency">
           <input style={inputStyle()} value={form.agency} onChange={e=>set("agency",e.target.value)} placeholder="Texas Comptroller" />
@@ -648,17 +809,37 @@ const RefundModal = ({ initial, onClose, projects }) => {
     <Modal title={form.id?"Edit Refund Claim":"New Refund Claim"} onClose={onClose} onSave={save} saving={saving}>
       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
         <Field label="Client">
-          <select style={inputStyle()} value={form.client} onChange={e=>set("client",e.target.value)}>
-            <option value="">Select…</option>
-            {projects.map(p=><option key={p.id} value={p.client}>{p.client}</option>)}
-          </select>
+          <SearchableSelect
+            options={projects}
+            value={form.client}
+            onChange={v => {
+              const p = projects.find(px => px.client === v);
+              set("client", v);
+              if (p?.due && !form.deadline) set("deadline", p.due);
+              if (p?.states?.length && !form.state) set("state", p.states[0]);
+              if (p?.exposure && !form.exposure) set("exposure", p.exposure);
+            }}
+            placeholder="Search client…"
+            getLabel={p => p.client}
+            renderOption={(p, compact) => (
+              <span style={{ display:"flex",alignItems:"center",gap:6 }}>
+                <span style={{ color:riskColor(p.risk),fontSize:10 }}>●</span>
+                <span>{p.client}</span>
+                {!compact && <span style={{ color:T.text3 }}>— {p.type}</span>}
+              </span>
+            )} />
         </Field>
         <Field label="State">
-          <input style={inputStyle()} value={form.state} onChange={e=>set("state",e.target.value)} placeholder="TX" maxLength={2} />
+          <select style={inputStyle()} value={form.state} onChange={e=>set("state",e.target.value)}>
+            <option value="">Select state…</option>
+            {(projects.find(p=>p.client===form.client)?.states || []).map(s=>(
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
         </Field>
         <Field label="Tax Type">
           <select style={inputStyle()} value={form.type} onChange={e=>set("type",e.target.value)}>
-            {["Sales & Use Tax","Severance Tax","Excise Tax","Other"].map(o=><option key={o}>{o}</option>)}
+            {TAX_TYPES.map(o=><option key={o}>{o}</option>)}
           </select>
         </Field>
         <Field label="Status">
@@ -901,8 +1082,8 @@ const DashboardView = ({ onNavigate, projects, audits, team }) => {
   const totalExposure = useMemo(()=>projects.reduce((s,p)=>s+(p.exposure||0),0),[projects]);
   const totalRefund   = useMemo(()=>projects.reduce((s,p)=>s+(p.refund||0),0),[projects]);
   const criticalCount = useMemo(()=>projects.filter(p=>p.risk==="Critical").length,[projects]);
-  const overdueAudits = useMemo(()=>audits.filter(a=>(a.daysLeft||0)<10).length,[audits]);
-  const urgentAudit   = audits.find(a=>(a.daysLeft||0)<10);
+  const overdueAudits = useMemo(()=>audits.filter(a=>{ const d=daysLeft(a.deadline); return d!==null&&d<10; }).length,[audits]);
+  const urgentAudit   = audits.find(a=>{ const d=daysLeft(a.deadline); return d!==null&&d<10; });
   const overloadedMember = team.find(m=>(m.utilization||0)>90);
   return (
     <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%",
@@ -934,7 +1115,7 @@ const DashboardView = ({ onNavigate, projects, audits, team }) => {
               <AlertBanner color={T.crimson} icon="⚑" badge="URGENT"
                 text={<>
                   {urgentAudit.client} audit deadline in{" "}
-                  <strong style={{color:T.crimson}}>{urgentAudit.daysLeft} days</strong>
+                  <strong style={{color:T.crimson}}>{daysLeft(urgentAudit.deadline)} days</strong>
                 </>}
                 cta="View →" onClick={()=>onNavigate("audits")} />
             )}
@@ -1010,18 +1191,23 @@ const DashboardView = ({ onNavigate, projects, audits, team }) => {
           <div>
             <SectionHeader title="Audit Deadlines" action="View All" onAction={()=>onNavigate("audits")} />
             <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
-              {audits.map((a,i) => (
+              {audits.map((a,i) => {
+                const dl = daysLeft(a.deadline);
+                const urgColor = dl===null?T.emerald:dl<0?T.crimson:dl<10?T.crimson:dl<30?T.amber:T.emerald;
+                return (
                 <div key={a.id} className="card fadeUp"
                   style={{ padding:"12px 14px",animationDelay:`${i*50}ms`,
-                    borderLeft:`3px solid ${(a.daysLeft||0)<10?T.crimson:(a.daysLeft||0)<30?T.amber:T.emerald}` }}>
+                    borderLeft:`3px solid ${urgColor}` }}>
                   <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}>
                     <span style={{ fontSize:12,fontWeight:600,color:T.text0 }}>{a.client}</span>
-                    <span style={{ fontSize:11,fontWeight:700,
-                      color:(a.daysLeft||0)<10?T.crimson:T.amber }}>{a.daysLeft}d left</span>
+                    <span style={{ fontSize:11,fontWeight:700,color:urgColor }}>
+                      {dl===null?"—":dl<0?`${Math.abs(dl)}d overdue`:dl===0?"Today":`${dl}d left`}
+                    </span>
                   </div>
                   <div style={{ fontSize:11,color:T.text3 }}>{a.state} · {a.type} · {fmt$(a.exposure||0)}</div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
           <div>
@@ -1115,16 +1301,21 @@ const ProjectsView = ({ projects, team, onEdit, onDelete }) => {
             </div>
             <div style={{ display:"flex",justifyContent:"space-between",marginBottom:10 }}>
               <span style={{ fontSize:11,color:statusColor(p.status),fontWeight:600 }}>● {p.status}</span>
-              <span style={{ fontSize:11,color:T.text3 }}>Due {p.due}</span>
+              <span style={{ fontSize:11,color:daysColor(p.due),fontWeight:600 }}>
+                {p.due ? `📅 ${daysLabel(p.due)}` : "No due date"}
+              </span>
             </div>
             <HealthBar value={p.health||0} />
             <div style={{ display:"flex",justifyContent:"space-between",
               marginTop:12,paddingTop:12,borderTop:`1px solid ${T.border}` }}>
-              <div style={{ display:"flex",gap:14 }}>
-                <span style={{ fontSize:11,color:T.text3 }}>
+              <div style={{ display:"flex",gap:14,alignItems:"center" }}>
+                <span style={{ fontSize:11,color:T.text3,display:"flex",alignItems:"center",gap:4 }}>
                   👤 {p.leadStaff || p.manager || "—"}
                   {(p.assignedTeam||[]).length > 0 &&
-                    <span style={{ color:T.blue,marginLeft:4 }}>+{(p.assignedTeam||[]).length}</span>}
+                    <span style={{ background:T.blue,color:"#fff",borderRadius:10,
+                      padding:"0 5px",fontSize:10,fontWeight:700 }}>
+                      +{(p.assignedTeam||[]).length}
+                    </span>}
                 </span>
                 <span style={{ fontSize:11,color:T.text3 }}>{p.tasks||0} tasks</span>
                 <span style={{ fontSize:11,color:(p.open||0)>10?T.amber:T.text3 }}>{p.open||0} open</span>
@@ -1193,7 +1384,7 @@ const TasksView = ({ tasks, projects, team, onEdit, onDelete }) => {
                         size={22} />
                       <span style={{ fontSize:11,color:T.text2 }}>{(t.assignee||"").split(" ")[0]}</span>
                     </div>
-                    <span style={{ fontSize:11,color:T.text3 }}>Due {t.due}</span>
+                    <span style={{ fontSize:11,fontWeight:600,color:daysColor(t.due) }}>📅 {t.due ? daysLabel(t.due) : "No date"}</span>
                   </div>
                   <div>
                     <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}>
@@ -1241,68 +1432,168 @@ const TasksView = ({ tasks, projects, team, onEdit, onDelete }) => {
 };
 
 // ─── STATES VIEW ──────────────────────────────────────────────────────────────
-const StatesView = ({ states, onEdit, onDelete }) => {
-  const underAudit = useMemo(()=>states.filter(s=>s.status.includes("Audit")).length,[states]);
-  const refundPend = useMemo(()=>states.filter(s=>s.status.includes("Refund")).length,[states]);
-  const totalExp   = useMemo(()=>states.reduce((a,s)=>a+(s.exposure||0),0),[states]);
+// Derives a unified state map from live project data (auto-flows from Projects tab)
+const deriveStatesFromProjects = (projects) => {
+  const map = {};
+  projects.forEach(p => {
+    (p.states || []).forEach(abbr => {
+      if (!map[abbr]) {
+        map[abbr] = {
+          state: abbr,
+          exposure: 0,
+          risk: "Low",
+          projects: [],
+          taxTypes: new Set(),
+          statuses: new Set(),
+          dueDate: null,
+        };
+      }
+      const entry = map[abbr];
+      entry.exposure += p.exposure || 0;
+      entry.projects.push(p.client);
+      entry.taxTypes.add(p.tax || "");
+      entry.statuses.add(p.status || "");
+      // Bubble up risk
+      const RISK_RANK = { Critical: 4, High: 3, Medium: 2, Low: 1 };
+      if ((RISK_RANK[p.risk] || 0) > (RISK_RANK[entry.risk] || 0)) entry.risk = p.risk;
+      // Track earliest due date
+      if (p.due && (!entry.dueDate || p.due < entry.dueDate)) entry.dueDate = p.due;
+    });
+  });
+  return Object.values(map).map(e => ({
+    ...e,
+    taxTypes: [...e.taxTypes].filter(Boolean).join(", "),
+    activeProjects: e.projects.length,
+    hasEscalated: [...e.statuses].some(s => s === "Escalated" || s === "Under Audit"),
+    hasPending:   [...e.statuses].some(s => s.includes("Waiting") || s.includes("Review")),
+  })).sort((a, b) => (b.exposure - a.exposure));
+};
+
+const StatesView = ({ states: _dbStates, projects, onEdit, onDelete }) => {
+  // Derive states from project data — overrides stored states
+  const derived = useMemo(() => deriveStatesFromProjects(projects), [projects]);
+
+  // Merge: derived rows are source of truth; stored rows can still be edited for nexus/filings
+  const dbMap = useMemo(() => {
+    const m = {};
+    _dbStates.forEach(s => { m[s.state] = s; });
+    return m;
+  }, [_dbStates]);
+
+  const rows = useMemo(() => derived.map(d => ({
+    ...d,
+    nexus:   dbMap[d.state]?.nexus   || "—",
+    filings: dbMap[d.state]?.filings || "—",
+    status:  dbMap[d.state]?.status  || (d.hasEscalated ? "Under Audit" : d.hasPending ? "Review Pending" : "Active"),
+    dbId:    dbMap[d.state]?.id,
+  })), [derived, dbMap]);
+
+  const totalExp   = useMemo(() => rows.reduce((a, r) => a + (r.exposure || 0), 0), [rows]);
+  const underAudit = useMemo(() => rows.filter(r => r.hasEscalated).length, [rows]);
+  const highRisk   = useMemo(() => rows.filter(r => r.risk === "Critical" || r.risk === "High").length, [rows]);
+
+  const [search, setSearch] = useState("");
+  const visible = useMemo(() =>
+    rows.filter(r => !search || r.state.toLowerCase().includes(search.toLowerCase())
+      || r.taxTypes.toLowerCase().includes(search.toLowerCase())
+      || r.projects.some(p => p.toLowerCase().includes(search.toLowerCase()))
+    ), [rows, search]);
+
   return (
     <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%",
       display:"flex",flexDirection:"column",gap:20 }}>
-      <SectionHeader title="State Tracker"
-        sub="Nexus footprint · Filing obligations · Audit exposure across all jurisdictions" />
+      <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+        <SectionHeader title="State Tracker"
+          sub="Auto-derived from Projects · Nexus footprint · Audit exposure" />
+        <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+          <span style={{ fontSize:11,color:T.text3 }}>🔄 Live from Projects</span>
+          <input value={search} onChange={e=>setSearch(e.target.value)}
+            placeholder="Filter by state, tax, client…"
+            style={{ padding:"6px 12px",width:220,borderRadius:8,fontSize:12 }} />
+        </div>
+      </div>
       <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:4 }}>
-        <MetricCard label="States Tracked" value={states.length} sub="in portfolio"      color={T.blue}    icon="◉" delay={0}   />
-        <MetricCard label="Under Audit"     value={underAudit}   sub="active reviews"    color={T.crimson} icon="⚑" delay={50}  />
-        <MetricCard label="Refund Pending"  value={refundPend}   sub="awaiting state"    color={T.emerald} icon="◆" delay={100} />
-        <MetricCard label="Total Exposure"  value={totalExp}     sub="across all states" color={T.amber}   icon="⚠" delay={150} />
+        <MetricCard label="States Active"  value={rows.length}   sub="across portfolio"  color={T.blue}    icon="◉" delay={0}   />
+        <MetricCard label="Under Audit"    value={underAudit}    sub="escalated states"  color={T.crimson} icon="⚑" delay={50}  />
+        <MetricCard label="High Risk"      value={highRisk}      sub="need attention"    color={T.amber}   icon="⚠" delay={100} />
+        <MetricCard label="Total Exposure" value={totalExp}      sub="across all states" color={T.emerald} icon="⬡" delay={150} />
       </div>
       <div className="card" style={{ overflow:"hidden" }}>
         <table style={{ width:"100%",borderCollapse:"collapse" }}>
           <thead>
             <tr style={{ borderBottom:`1px solid ${T.border}`,background:T.bg3 }}>
-              {["State","Nexus Type","Status","Exposure","Filing Freq","Risk","Actions"].map(h=>(
-                <th key={h} style={{ padding:"12px 16px",textAlign:"left",fontSize:11,
+              {["State","Nexus","Status","Exposure","Tax Type","Projects","Risk","Earliest Due","Actions"].map(h=>(
+                <th key={h} style={{ padding:"10px 14px",textAlign:"left",fontSize:10,
                   fontWeight:700,color:T.text3,letterSpacing:"0.06em",textTransform:"uppercase" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {states.map((s,i)=>(
-              <tr key={s.id} className="fadeUp"
-                style={{ borderBottom:`1px solid ${T.border}`,animationDelay:`${i*40}ms`,
+            {visible.length === 0 && (
+              <tr><td colSpan={9} style={{ padding:"32px",textAlign:"center",color:T.text3,fontSize:13 }}>
+                No states yet — add projects with states to see them here
+              </td></tr>
+            )}
+            {visible.map((s,i)=>(
+              <tr key={s.state} className="fadeUp"
+                style={{ borderBottom:`1px solid ${T.border}`,animationDelay:`${i*30}ms`,
                   transition:"background 0.15s",cursor:"pointer" }}
                 onMouseEnter={e=>e.currentTarget.style.background=T.bg3}
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                <td style={{ padding:"14px 16px" }}>
-                  <div style={{ width:32,height:22,borderRadius:4,background:T.bg4,
+                <td style={{ padding:"12px 14px" }}>
+                  <div style={{ width:34,height:22,borderRadius:4,background:T.bg4,
                     border:`1px solid ${T.border}`,display:"flex",alignItems:"center",
                     justifyContent:"center",fontSize:11,fontWeight:800,
                     color:T.text0,letterSpacing:"0.04em" }}>{s.state}</div>
                 </td>
-                <td style={{ padding:"14px 16px" }}>
+                <td style={{ padding:"12px 14px" }}>
                   <Badge label={s.nexus} color={s.nexus.includes("+")?T.violet:T.blue} />
                 </td>
-                <td style={{ padding:"14px 16px" }}>
-                  <span style={{ fontSize:12,color:statusColor(s.status),fontWeight:600 }}>● {s.status}</span>
+                <td style={{ padding:"12px 14px" }}>
+                  <span style={{ fontSize:11,color:statusColor(s.status),fontWeight:600 }}>● {s.status}</span>
                 </td>
-                <td style={{ padding:"14px 16px" }}>
+                <td style={{ padding:"12px 14px" }}>
                   <span style={{ fontSize:13,fontWeight:700,color:T.text0 }}>{fmt$(s.exposure||0)}</span>
                 </td>
-                <td style={{ padding:"14px 16px" }}>
-                  <span style={{ fontSize:12,color:T.text2 }}>{s.filings}</span>
+                <td style={{ padding:"12px 14px",maxWidth:160 }}>
+                  <span style={{ fontSize:11,color:T.text2 }}>{s.taxTypes || "—"}</span>
                 </td>
-                <td style={{ padding:"14px 16px" }}>
+                <td style={{ padding:"12px 14px" }}>
+                  <div style={{ display:"flex",flexWrap:"wrap",gap:3 }}>
+                    {s.projects.slice(0,2).map(p=>(
+                      <span key={p} style={{ fontSize:10,color:T.text3,background:T.bg4,
+                        padding:"1px 5px",borderRadius:4,border:`1px solid ${T.border}` }}>
+                        {p.split(" ")[0]}
+                      </span>
+                    ))}
+                    {s.projects.length > 2 && (
+                      <span style={{ fontSize:10,color:T.blue }}>+{s.projects.length-2}</span>
+                    )}
+                  </div>
+                </td>
+                <td style={{ padding:"12px 14px" }}>
                   <Badge label={s.risk} color={riskColor(s.risk)} />
                 </td>
-                <td style={{ padding:"14px 16px" }}>
+                <td style={{ padding:"12px 14px" }}>
+                  <span style={{ fontSize:11,fontWeight:600,color:daysColor(s.dueDate) }}>
+                    {s.dueDate ? daysLabel(s.dueDate) : "—"}
+                  </span>
+                </td>
+                <td style={{ padding:"12px 14px" }}>
                   <div style={{ display:"flex",gap:6 }}>
-                    <button className="btn-ghost"
-                      style={{ fontSize:11,padding:"3px 9px",borderRadius:6 }}
-                      onClick={()=>onEdit(s)}>Edit</button>
-                    <button className="btn-ghost"
-                      style={{ fontSize:11,padding:"3px 9px",borderRadius:6,
-                        borderColor:`${T.crimson}40`,color:T.crimson }}
-                      onClick={()=>onDelete(s.id)}>✕</button>
+                    {s.dbId ? (
+                      <>
+                        <button className="btn-ghost"
+                          style={{ fontSize:10,padding:"3px 8px",borderRadius:6 }}
+                          onClick={()=>onEdit(dbMap[s.state])}>Edit</button>
+                        <button className="btn-ghost"
+                          style={{ fontSize:10,padding:"3px 8px",borderRadius:6,
+                            borderColor:`${T.crimson}40`,color:T.crimson }}
+                          onClick={()=>onDelete(s.dbId)}>✕</button>
+                      </>
+                    ) : (
+                      <span style={{ fontSize:10,color:T.text3 }}>Auto</span>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -1310,31 +1601,85 @@ const StatesView = ({ states, onEdit, onDelete }) => {
           </tbody>
         </table>
       </div>
+      {rows.length > 0 && (
+        <div style={{ fontSize:11,color:T.text3,textAlign:"right" }}>
+          {rows.length} state{rows.length!==1?"s":""} · derived from {projects.length} project{projects.length!==1?"s":""}
+          · updates automatically when you edit projects
+        </div>
+      )}
     </div>
   );
 };
 
 // ─── AUDITS VIEW ──────────────────────────────────────────────────────────────
+// Derive audit-like entries from projects that are Escalated or have audits
+const deriveAuditsFromProjects = (projects) =>
+  projects
+    .filter(p => p.status === "Escalated" || p.type === "Audit Defense")
+    .flatMap(p =>
+      (p.states || ["—"]).map(st => ({
+        _derived: true,
+        _projectId: p.id,
+        client:   p.client,
+        state:    st,
+        agency:   `${st} Dept of Revenue`,
+        period:   p.period || "—",
+        type:     p.type === "Audit Defense" ? "Audit Defense" : "Full Audit",
+        exposure: Math.round((p.exposure || 0) / Math.max(1, (p.states||[]).length)),
+        deadline: p.due || null,
+        status:   p.status === "Escalated" ? "Active" : "Active",
+        tax:      p.tax || "",
+        leadStaff:p.leadStaff || "",
+      }))
+    );
+
 const AuditsView = ({ audits, projects, onEdit, onDelete }) => {
-  const totalAuditExp = useMemo(()=>audits.reduce((a,n)=>a+(n.exposure||0),0),[audits]);
-  const urgent        = useMemo(()=>audits.filter(a=>(a.daysLeft||0)<10).length,[audits]);
-  const responded     = useMemo(()=>audits.filter(a=>a.status==="Responded").length,[audits]);
+  // Merge: manual Firestore audits + project-derived entries (de-dup by client+state)
+  const derived = useMemo(() => deriveAuditsFromProjects(projects), [projects]);
+  const dbKeys  = useMemo(() => new Set(audits.map(a => `${a.client}|${a.state}`)), [audits]);
+  const merged  = useMemo(() => [
+    ...audits,
+    ...derived.filter(d => !dbKeys.has(`${d.client}|${d.state}`)),
+  ], [audits, derived, dbKeys]);
+
+  // Always auto-calculate daysLeft from deadline
+  const rows = useMemo(() => merged.map(a => ({
+    ...a,
+    daysLeft: daysLeft(a.deadline),
+  })), [merged]);
+
+  const totalAuditExp = useMemo(()=>rows.reduce((s,a)=>s+(a.exposure||0),0),[rows]);
+  const urgent        = useMemo(()=>rows.filter(a=>a.daysLeft!==null&&a.daysLeft<10).length,[rows]);
+  const responded     = useMemo(()=>rows.filter(a=>a.status==="Responded").length,[rows]);
+
   return (
     <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%",
       display:"flex",flexDirection:"column",gap:20 }}>
-      <SectionHeader title="Audit Management"
-        sub="Active audit notices · IDR tracking · Response deadlines · Resolution status" />
+      <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+        <SectionHeader title="Audit Management"
+          sub="Active audit notices · IDR tracking · Response deadlines · Auto-derived from Projects" />
+        <span style={{ fontSize:11,color:T.text3 }}>🔄 Live from Projects</span>
+      </div>
       <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12 }}>
-        <MetricCard label="Active Audits"        value={audits.length}  sub="across states"      color={T.crimson} icon="⚑" delay={0}   />
+        <MetricCard label="Active Audits"        value={rows.length}    sub="across states"      color={T.crimson} icon="⚑" delay={0}   />
         <MetricCard label="Total Audit Exposure" value={totalAuditExp}  sub="combined estimate"  color={T.amber}   icon="⚠" delay={50}  />
         <MetricCard label="Urgent Deadlines"     value={urgent}         sub="due within 10 days" color={T.crimson} icon="⏱" delay={100} />
         <MetricCard label="Responded"            value={responded}      sub="IDRs submitted"     color={T.emerald} icon="✓" delay={150} />
       </div>
       <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
-        {audits.map((a,i)=>(
-          <div key={a.id} className="card hover-lift fadeUp"
+        {rows.length === 0 && (
+          <div style={{ textAlign:"center",padding:"60px 0",color:T.text3 }}>
+            <div style={{ fontSize:32,marginBottom:12 }}>⚑</div>
+            <div>No audits yet — mark a project as Escalated or Audit Defense to see it here</div>
+          </div>
+        )}
+        {rows.map((a,i)=>{
+          const dl = a.daysLeft;
+          const urgentColor = dl===null?T.emerald:dl<0?T.crimson:dl<10?T.crimson:dl<30?T.amber:T.emerald;
+          return (
+          <div key={a.id||`${a.client}-${a.state}-${i}`} className="card hover-lift fadeUp"
             style={{ padding:"22px 24px",animationDelay:`${i*60}ms`,
-              borderLeft:`4px solid ${(a.daysLeft||0)<10?T.crimson:(a.daysLeft||0)<30?T.amber:T.emerald}` }}>
+              borderLeft:`4px solid ${urgentColor}` }}>
             <div style={{ display:"flex",alignItems:"flex-start",
               justifyContent:"space-between",marginBottom:14 }}>
               <div>
@@ -1343,8 +1688,15 @@ const AuditsView = ({ audits, projects, onEdit, onDelete }) => {
                   <Badge label={a.type} color={T.blue} />
                   <Badge label={a.status}
                     color={a.status==="Active"?T.crimson:a.status==="Responded"?T.emerald:T.amber} />
+                  {a._derived && (
+                    <span style={{ fontSize:10,color:T.text3,background:T.bg4,
+                      padding:"2px 6px",borderRadius:4,border:`1px solid ${T.border}` }}>auto</span>
+                  )}
                 </div>
-                <div style={{ fontSize:12,color:T.text3 }}>{a.agency} · Audit Period: {a.period}</div>
+                <div style={{ fontSize:12,color:T.text3 }}>
+                  {a.agency} · Audit Period: {a.period}
+                  {a.leadStaff && <span> · Lead: {a.leadStaff}</span>}
+                </div>
               </div>
               <div style={{ textAlign:"right" }}>
                 <div style={{ fontSize:20,fontWeight:700,color:T.text0 }}>{fmt$(a.exposure||0)}</div>
@@ -1354,11 +1706,11 @@ const AuditsView = ({ audits, projects, onEdit, onDelete }) => {
             <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16,
               padding:"14px 16px",background:T.bg3,borderRadius:10,marginBottom:14 }}>
               {[
-                { label:"State",          value:a.state },
-                { label:"Deadline",       value:a.deadline },
+                { label:"State",          value: a.state },
+                { label:"Deadline",       value: a.deadline || "—" },
                 { label:"Days Remaining", value:(
-                  <span style={{ color:(a.daysLeft||0)<10?T.crimson:(a.daysLeft||0)<30?T.amber:T.emerald,fontWeight:700 }}>
-                    {a.daysLeft} days
+                  <span style={{ color:urgentColor,fontWeight:700 }}>
+                    {dl===null?"—":dl<0?`${Math.abs(dl)}d overdue`:dl===0?"Today":`${dl} days`}
                   </span>
                 )},
                 { label:"Status", value:(
@@ -1385,39 +1737,80 @@ const AuditsView = ({ audits, projects, onEdit, onDelete }) => {
                 style={{ fontSize:12,padding:"8px 16px",borderRadius:8 }}>
                 Draft Response
               </button>
-              <button className="btn-ghost"
-                style={{ fontSize:12,padding:"8px 16px",borderRadius:8 }}
-                onClick={()=>onEdit(a)}>Edit</button>
-              {(a.daysLeft||0)<10 && (
+              {!a._derived && (
+                <button className="btn-ghost"
+                  style={{ fontSize:12,padding:"8px 16px",borderRadius:8 }}
+                  onClick={()=>onEdit(a)}>Edit</button>
+              )}
+              {dl!==null && dl<10 && (
                 <button className="btn-ghost"
                   style={{ fontSize:12,padding:"8px 16px",borderRadius:8,
                     borderColor:`${T.crimson}40`,color:T.crimson,marginLeft:"auto" }}
-                  onClick={()=>updateDocById(COLS.audits,a.id,{ status:"Escalated" })}>
+                  onClick={()=>!a._derived&&updateDocById(COLS.audits,a.id,{ status:"Escalated" })}>
                   ⚑ Escalate
                 </button>
               )}
-              <button className="btn-ghost"
-                style={{ fontSize:12,padding:"8px 16px",borderRadius:8,
-                  borderColor:`${T.crimson}40`,color:T.crimson,marginLeft:(a.daysLeft||0)<10?"0":"auto" }}
-                onClick={()=>onDelete(a.id)}>✕ Remove</button>
+              {!a._derived && (
+                <button className="btn-ghost"
+                  style={{ fontSize:12,padding:"8px 16px",borderRadius:8,
+                    borderColor:`${T.crimson}40`,color:T.crimson,
+                    marginLeft:(dl!==null&&dl<10)?"0":"auto" }}
+                  onClick={()=>onDelete(a.id)}>✕ Remove</button>
+              )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 };
 
 // ─── REFUNDS VIEW ─────────────────────────────────────────────────────────────
+// Derive refund rows from projects that have refund > 0
+const deriveRefundsFromProjects = (projects) =>
+  projects
+    .filter(p => (p.refund || 0) > 0)
+    .flatMap(p =>
+      (p.states && p.states.length > 0 ? p.states : ["—"]).map((st, si) => ({
+        _derived: true,
+        _projectId: p.id,
+        client:    p.client,
+        state:     st,
+        type:      p.tax || "Sales & Use Tax",
+        estimated: si === 0 ? (p.refund || 0) : 0, // full amount on first state
+        filed:     0,
+        recovered: 0,
+        pct:       0,
+        status:    p.status === "Filed" ? "Filed — Pending Approval"
+                 : p.status === "Closed" ? "Fully Recovered"
+                 : "Identified — Not Yet Filed",
+        leadStaff: p.leadStaff || "",
+        due:       p.due || null,
+      }))
+    );
+
 const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
-  const totalEst   = useMemo(()=>refunds.reduce((a,r)=>a+(r.estimated||0),0),[refunds]);
-  const totalFiled = useMemo(()=>refunds.reduce((a,r)=>a+(r.filed||0),0),[refunds]);
-  const totalRec   = useMemo(()=>refunds.reduce((a,r)=>a+(r.recovered||0),0),[refunds]);
+  // Merge manual Firestore refunds + project-derived (de-dup by client+state)
+  const derived = useMemo(() => deriveRefundsFromProjects(projects), [projects]);
+  const dbKeys  = useMemo(() => new Set(refunds.map(r => `${r.client}|${r.state}`)), [refunds]);
+  const merged  = useMemo(() => [
+    ...refunds,
+    ...derived.filter(d => !dbKeys.has(`${d.client}|${d.state}`)),
+  ], [refunds, derived, dbKeys]);
+
+  const totalEst   = useMemo(()=>merged.reduce((a,r)=>a+(r.estimated||0),0),[merged]);
+  const totalFiled = useMemo(()=>merged.reduce((a,r)=>a+(r.filed||0),0),[merged]);
+  const totalRec   = useMemo(()=>merged.reduce((a,r)=>a+(r.recovered||0),0),[merged]);
+
   return (
     <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%",
       display:"flex",flexDirection:"column",gap:20 }}>
-      <SectionHeader title="Refund Tracker"
-        sub="Recovery pipeline · Filing status · Estimated vs. actual savings" />
+      <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+        <SectionHeader title="Refund Tracker"
+          sub="Recovery pipeline · Auto-derived from Projects · Filing status · Estimated vs. actual savings" />
+        <span style={{ fontSize:11,color:T.text3 }}>🔄 Live from Projects</span>
+      </div>
       <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12 }}>
         <MetricCard label="Refund Pipeline" value={totalEst}   sub="total estimated"      color={T.emerald} icon="◆" delay={0}   />
         <MetricCard label="Filed Claims"    value={totalFiled} sub="submitted to states"   color={T.blue}    icon="◈" delay={50}  />
@@ -1427,8 +1820,14 @@ const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
           sub="overall effectiveness" color={T.violet} icon="⬡" delay={150} />
       </div>
       <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
-        {refunds.map((r,i)=>(
-          <div key={r.id} className="card hover-lift fadeUp"
+        {merged.length === 0 && (
+          <div style={{ textAlign:"center",padding:"60px 0",color:T.text3 }}>
+            <div style={{ fontSize:32,marginBottom:12 }}>◆</div>
+            <div>No refunds yet — add a project with a Refund amount to see it here</div>
+          </div>
+        )}
+        {merged.map((r,i)=>(
+          <div key={r.id||`${r.client}-${r.state}-${i}`} className="card hover-lift fadeUp"
             style={{ padding:"22px 24px",animationDelay:`${i*60}ms` }}>
             <div style={{ display:"flex",alignItems:"flex-start",
               justifyContent:"space-between",marginBottom:16 }}>
@@ -1437,12 +1836,22 @@ const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
                   <span style={{ fontSize:14,fontWeight:700,color:T.text0 }}>{r.client}</span>
                   <Badge label={r.state} color={T.blue}   />
                   <Badge label={r.type}  color={T.violet} />
+                  {r._derived && (
+                    <span style={{ fontSize:10,color:T.text3,background:T.bg4,
+                      padding:"2px 6px",borderRadius:4,border:`1px solid ${T.border}` }}>auto</span>
+                  )}
                 </div>
                 <div style={{ fontSize:12,color:T.text3 }}>
                   Status:{" "}
                   <span style={{ color:r.pct===100?T.emerald:r.pct>0?T.amber:T.blue,fontWeight:600 }}>
                     {r.status}
                   </span>
+                  {r.leadStaff && <span style={{ color:T.text3 }}> · Lead: {r.leadStaff}</span>}
+                  {r.due && (
+                    <span style={{ color:daysColor(r.due),marginLeft:8,fontWeight:600 }}>
+                      {daysLabel(r.due)}
+                    </span>
+                  )}
                 </div>
               </div>
               <div style={{ display:"flex",gap:28,textAlign:"right" }}>
@@ -1463,7 +1872,7 @@ const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
               <div style={{ display:"flex",justifyContent:"space-between",marginBottom:6 }}>
                 <span style={{ fontSize:12,color:T.text3 }}>Recovery Progress</span>
                 <span style={{ fontSize:12,fontWeight:700,
-                  color:r.pct===100?T.emerald:r.pct>0?T.amber:T.blue }}>{r.pct}%</span>
+                  color:r.pct===100?T.emerald:r.pct>0?T.amber:T.blue }}>{r.pct||0}%</span>
               </div>
               <div className="progress-bar" style={{ height:8 }}>
                 <div className="progress-fill" style={{
@@ -1476,24 +1885,28 @@ const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
               </div>
             </div>
             <div style={{ display:"flex",gap:8,marginTop:14 }}>
-              <button className="btn-ghost"
-                style={{ fontSize:12,padding:"7px 14px",borderRadius:8 }}
-                onClick={()=>onEdit(r)}>✏ Edit</button>
+              {!r._derived && (
+                <button className="btn-ghost"
+                  style={{ fontSize:12,padding:"7px 14px",borderRadius:8 }}
+                  onClick={()=>onEdit(r)}>✏ Edit</button>
+              )}
               <button className="btn-ghost"
                 style={{ fontSize:12,padding:"7px 14px",borderRadius:8 }}>
                 Upload Correspondence
               </button>
-              {r.pct<100 && (
+              {(r.pct||0)<100 && (
                 <button className="btn-primary"
                   style={{ fontSize:12,padding:"7px 14px",borderRadius:8,marginLeft:"auto" }}
-                  onClick={()=>updateDocById(COLS.refunds,r.id,{ status:"Follow-Up Sent" })}>
+                  onClick={()=>!r._derived&&updateDocById(COLS.refunds,r.id,{ status:"Follow-Up Sent" })}>
                   Follow Up →
                 </button>
               )}
-              <button className="btn-ghost"
-                style={{ fontSize:12,padding:"7px 14px",borderRadius:8,
-                  borderColor:`${T.crimson}40`,color:T.crimson }}
-                onClick={()=>onDelete(r.id)}>✕</button>
+              {!r._derived && (
+                <button className="btn-ghost"
+                  style={{ fontSize:12,padding:"7px 14px",borderRadius:8,
+                    borderColor:`${T.crimson}40`,color:T.crimson }}
+                  onClick={()=>onDelete(r.id)}>✕</button>
+              )}
             </div>
           </div>
         ))}
@@ -1576,7 +1989,21 @@ const TeamModal = ({ initial, onClose }) => {
   );
 };
 
-const TeamView = ({ team, onAdd, onEdit, onDelete }) => {
+const TeamView = ({ team, projects, onAdd, onEdit, onDelete }) => {
+  // Auto-compute each member's active project count from live project data
+  const memberStats = useMemo(() => {
+    const map = {};
+    team.forEach(m => { map[m.name] = { projects: 0, states: new Set() }; });
+    projects.forEach(p => {
+      const members = [p.leadStaff, ...(p.assignedTeam||[])].filter(Boolean);
+      members.forEach(name => {
+        if (!map[name]) map[name] = { projects: 0, states: new Set() };
+        if (p.status !== "Closed" && p.status !== "Filed") map[name].projects += 1;
+        (p.states||[]).forEach(s => map[name].states.add(s));
+      });
+    });
+    return map;
+  }, [team, projects]);
   return (
   <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%",
     display:"flex",flexDirection:"column",gap:20 }}>
@@ -1622,7 +2049,15 @@ const TeamView = ({ team, onAdd, onEdit, onDelete }) => {
               width:`${m.utilization||0}%`,
               background:(m.utilization||0)>90?T.crimson:(m.utilization||0)>75?T.amber:T.emerald }} />
           </div>
-          <div style={{ fontSize:12,color:T.text2,marginBottom:12 }}>{m.projects} active projects</div>
+          <div style={{ fontSize:12,color:T.text2,marginBottom:12 }}>
+            {(memberStats[m.name]?.projects ?? m.projects)} active project{((memberStats[m.name]?.projects ?? m.projects)!==1?"s":"")}
+            {(memberStats[m.name]?.states?.size||0)>0 && (
+              <span style={{ color:T.text3,marginLeft:6 }}>
+                · {[...(memberStats[m.name]?.states||[])].slice(0,3).join(", ")}
+                {(memberStats[m.name]?.states?.size||0)>3 ? ` +${(memberStats[m.name]?.states?.size||0)-3}` : ""}
+              </span>
+            )}
+          </div>
           <div>
             <div style={{ fontSize:10,color:T.text3,marginBottom:6,
               textTransform:"uppercase",letterSpacing:"0.06em" }}>State Expertise</div>
@@ -2000,6 +2435,7 @@ export default function App() {
       case "states": return (
         <StatesView
           states={states}
+          projects={projects}
           onEdit={s=>setStateModal(s)}
           onDelete={deleteState} />
       );
@@ -2020,6 +2456,7 @@ export default function App() {
       case "team": return (
         <TeamView
           team={team}
+          projects={projects}
           onAdd={()=>setTeamModal({})}
           onEdit={m=>setTeamModal(m)}
           onDelete={deleteTeam} />
