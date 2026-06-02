@@ -456,7 +456,8 @@ const MetricCard = ({ label, value, sub, color, icon, delay=0 }) => {
   },[numVal]);
   const displayValue = numVal!==null
     ?(label.includes("Exposure")||label.includes("Refund")||label.includes("Pipeline")||
-      label.includes("Filed")||label.includes("Recovered")||label.includes("Audit Exposure")
+      label.includes("Filed")||label.includes("Recovered")||label.includes("Audit Exposure")||
+      label.includes("Claims")
       ?fmt$(displayed):displayed)
     :value;
   return (
@@ -545,8 +546,9 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
     
     if (form.id) {
       await updateDocById(COLS.projects, form.id, data);
-      
+
       // ── CASCADE STATUS TO UNDERLYING KANBAN TASKS ──
+      // Only runs on EDIT (form.id exists), never on new project creation.
       // If the project macro-status aligns with dashboard Kanban steps, synchronize them.
       if (TASK_COLS.includes(form.status)) {
         try {
@@ -707,8 +709,8 @@ const TaskModal = ({ initial, onClose, projects, teamMembers }) => {
               const p = projects.find(px => px.client === v);
               set("project", v);
               if (p?.due && !form.due) set("due", p.due);
-              // Auto-sync task column alignment with custom macro project status configurations
-              if (p?.status && TASK_COLS.includes(p.status)) set("status", p.status);
+              // Auto-sync task column on NEW tasks only — never overwrite status on edit
+              if (!form.id && p?.status && TASK_COLS.includes(p.status)) set("status", p.status);
             }}
             placeholder="Search project…"
             getLabel={p => p.client}
@@ -965,7 +967,16 @@ const RefundModal = ({ initial, onClose, projects }) => {
   );
 };
 
-// ─── COMMAND PALETTE ──────────────────────────────────────────────────────────
+// ─── SIMPLE MARKDOWN BOLD RENDERER ──────────────────────────────────────────
+const renderMarkdown = (text) => {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i} style={{ color: "inherit", fontWeight: 700 }}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+};
 const CommandPalette = ({ open, onClose, onNavigate }) => {
   const [query, setQuery] = useState("");
   const inputRef = useRef();
@@ -2166,7 +2177,7 @@ const CopilotView = () => {
         {messages.map((m,i)=>(
           <div key={i} className="fadeUp" style={{ display:"flex",gap:12,justifyContent:m.role==="user"?"flex-end":"flex-start" }}>
             <div style={{ maxWidth:"75%", background:m.role==="user"?`linear-gradient(135deg,${T.blue},${T.blueDim})`:T.bg2, border:`1px solid ${m.role==="user"?T.blue:T.border}`, borderRadius:"12px", padding:"14px 16px",fontSize:13,lineHeight:1.65,color:T.text1 }}>
-              {m.text}
+              {renderMarkdown(m.text)}
             </div>
           </div>
         ))}
