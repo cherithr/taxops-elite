@@ -1592,19 +1592,49 @@ const StatesView = ({ states: _dbStates, projects, onEdit, onDelete }) => {
     return m;
   }, [_dbStates]);
 
-  const rows = useMemo(() => derived.map(d => ({
-    ...d,
-    nexus: dbMap[d.state]?.nexus || "—",
-    filings: dbMap[d.state]?.filings || "—",
-    status: dbMap[d.state]?.status || (
-      d.hasEscalated ? "Under Audit" :
-      d.hasPending ? "In Progress" :
-      d.allStatuses?.includes("Planning") ? "Planning" :
-      d.allStatuses?.includes("Filed") ? "Filed" :
-      d.allStatuses?.includes("Closed") ? "Closed" : "Active"
-    ),
-    dbId: dbMap[d.state]?.id,
-  })), [derived, dbMap]);
+const rows = useMemo(() => {
+    // 1. Process states that come from active Projects
+    const derivedRows = derived.map(d => {
+      const dbState = dbMap[d.state];
+      return {
+        ...d,
+        nexus: dbState?.nexus || "—",
+        filings: dbState?.filings || "—",
+        status: dbState?.status || (
+          d.hasEscalated ? "Under Audit" :
+          d.hasPending ? "In Progress" :
+          d.allStatuses?.includes("Planning") ? "Planning" :
+          d.allStatuses?.includes("Filed") ? "Filed" :
+          d.allStatuses?.includes("Closed") ? "Closed" : "Active"
+        ),
+        // Allow manual DB edits to override the derived totals
+        exposure: (dbState?.exposure && dbState.exposure > 0) ? dbState.exposure : d.exposure,
+        risk: dbState?.risk && dbState.risk !== "Medium" ? dbState.risk : d.risk, 
+        dbId: dbState?.id,
+      };
+    });
+
+    // 2. Process states manually added to the DB that don't have any projects yet
+    const derivedKeys = new Set(derived.map(d => d.state));
+    const standaloneRows = _dbStates
+      .filter(s => !derivedKeys.has(s.state))
+      .map(s => ({
+        state: s.state,
+        exposure: s.exposure || 0,
+        risk: s.risk || "Low",
+        projects: [],
+        taxTypes: "—",
+        activeProjects: 0,
+        dueDate: null,
+        nexus: s.nexus || "—",
+        filings: s.filings || "—",
+        status: s.status || "Registered",
+        dbId: s.id,
+      }));
+
+    // Combine both lists and sort by highest exposure
+    return [...derivedRows, ...standaloneRows].sort((a, b) => (b.exposure || 0) - (a.exposure || 0));
+  }, [derived, dbMap, _dbStates]);
 
   const totalExp = useMemo(() => rows.reduce((a, r) => a + (r.exposure || 0), 0), [rows]);
   const underAudit = useMemo(() => rows.filter(r => r.hasEscalated).length, [rows]);
