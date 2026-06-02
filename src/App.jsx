@@ -1955,7 +1955,7 @@ const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
     return m;
   }, [refunds]);
 
-  // 2. Properly merge live project estimates with manual database edits
+  // 2. Strictly use live project estimates, but merge in your manual progress edits
   const merged = useMemo(() => {
     const derivedRows = derived.map(d => {
       const dbRef = dbMap[`${d.client}|${d.state}`];
@@ -1969,6 +1969,10 @@ const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
         _derived: true 
       };
     });
+
+    // We no longer allow standalone manual rows. All refunds MUST come from Projects.
+    return derivedRows.sort((a, b) => (b.estimated || 0) - (a.estimated || 0));
+  }, [derived, dbMap]);
 
     const derivedKeys = new Set(derived.map(d => `${d.client}|${d.state}`));
     const standaloneRows = refunds.filter(r => !derivedKeys.has(`${r.client}|${r.state}`));
@@ -2448,8 +2452,8 @@ export default function App() {
           </main>
         </div>
       </div>
-      {/* Only show the Quick Add button if we are NOT on the states tab */}
-      {activeView !== "states" && (
+      {/* Hide the Quick Add button if we are on the states OR refunds tab */}
+      {(activeView !== "states" && activeView !== "refunds") && (
         <button className="btn-primary" title="Quick Add" onClick={handleNew} style={{ position:"fixed",bottom:28,right:28,width:52,height:52,borderRadius:"50%",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 8px 32px ${T.blueGlow}`,zIndex:100,border:"none" }}>⊕</button>
       )}
     </>
