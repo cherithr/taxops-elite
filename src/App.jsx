@@ -539,26 +539,40 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
       assignedTeam: form.assignedTeam,
     };
     
-    if (form.id) {
+if (form.id) {
       await updateDocById(COLS.projects, form.id, data);
 
-      // ── CASCADE STATUS TO UNDERLYING KANBAN TASKS ──
-      // Only runs on EDIT (form.id exists), never on new project creation.
-      // If the project macro-status aligns with dashboard Kanban steps, synchronize them.
-      if (TASK_COLS.includes(form.status)) {
-        try {
-          const qTasks = query(collection(db, COLS.tasks), where("project", "==", form.client));
-          const querySnap = await getDocs(qTasks);
-          if (!querySnap.empty) {
-            const batch = writeBatch(db);
+      // ── CASCADE STATUS & DUE DATE TO UNDERLYING KANBAN TASKS ──
+      // Runs on EDIT (form.id exists). Synchronizes macro-changes down to task level.
+      try {
+        const qTasks = query(collection(db, COLS.tasks), where("project", "==", form.client));
+        const querySnap = await getDocs(qTasks);
+        
+        if (!querySnap.empty) {
+          const batch = writeBatch(db);
+          const taskUpdates = {};
+          
+          // 1. Cascade Status (only if the project status matches a Kanban lane)
+          if (TASK_COLS.includes(form.status)) {
+            taskUpdates.status = form.status;
+          }
+          
+          // 2. Cascade Due Date
+          if (form.due) {
+            taskUpdates.due = form.due;
+          }
+
+          // If there's anything to update, push it to all linked tasks
+          if (Object.keys(taskUpdates).length > 0) {
+            taskUpdates.updatedAt = new Date(); // Using native Date for batch compatibility
             querySnap.docs.forEach(taskDoc => {
-              batch.update(taskDoc.ref, { status: form.status, updatedAt: new Date() });
+              batch.update(taskDoc.ref, taskUpdates);
             });
             await batch.commit();
           }
-        } catch (err) {
-          console.error("Failed to cascade status changes to individual tasks:", err);
         }
+      } catch (err) {
+        console.error("Failed to cascade changes to individual tasks:", err);
       }
     } else {
       await createDoc(COLS.projects, data);
