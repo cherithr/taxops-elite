@@ -2163,15 +2163,22 @@ export default function App() {
       setAuthUser(user);
       setAuthChecked(true);
       if (!user) { setSeeded(false); return; }
-      (async () => {
-        await Promise.all([
-          seedCollection(COLS.projects, SEED_PROJECTS),
-          seedCollection(COLS.tasks, SEED_TASKS),
-          seedCollection(COLS.team, SEED_TEAM),
-          seedCollection(COLS.states, SEED_STATES),
-        ]);
-        setSeeded(true);
-      })();
+(async () => {
+  try {
+    await Promise.all([
+      seedCollection(COLS.projects, SEED_PROJECTS),
+      seedCollection(COLS.tasks, SEED_TASKS),
+      seedCollection(COLS.team, SEED_TEAM),
+      seedCollection(COLS.states, SEED_STATES),
+    ]);
+  } catch (error) {
+    console.error("🔥 Failed to seed Firebase data:", error);
+  } finally {
+    // This ensures the app always loads past "Initializing...", 
+    // even if the database write failed.
+    setSeeded(true); 
+  }
+})();
     });
     return () => unsubAuth();
   }, []);
