@@ -1945,7 +1945,7 @@ const deriveRefundsFromProjects = (projects) =>
       }))
     );
 
-const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
+const RefundsView = ({ refunds, projects, onNavigate, onEdit, onDelete }) => {
   const derived = useMemo(() => deriveRefundsFromProjects(projects), [projects]);
   
   // 1. Create a map of database edits
@@ -2039,7 +2039,7 @@ const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
             </div>
             <div style={{ display:"flex",gap:8,marginTop:14 }}>
               {/* 🟢 FIXED: The Edit button now shows for ALL refunds so you can log progress */}
-              <button className="btn-ghost" style={{ fontSize:12,padding:"7px 14px",borderRadius:8 }} onClick={()=>onEdit(r)}>✏ Edit Progress</button>
+              <button className="btn-ghost" style={{ fontSize:12,padding:"7px 14px",borderRadius:8 }} onClick={()=>onNavigate("projects")}>✏ Edit Progress</button>
               
               <button className="btn-ghost" style={{ fontSize:12,padding:"7px 14px",borderRadius:8 }}>Upload Correspondence</button>
               
@@ -2440,7 +2440,7 @@ export default function App() {
             {activeView === "tasks" && <TasksView tasks={tasks} projects={projects} team={team} onEdit={setTaskModal} onDelete={deleteTask} />}
             {activeView === "states" && <StatesView states={states} projects={projects} onEdit={setStateModal} onDelete={deleteState} />}
             {activeView === "audits" && <AuditsView audits={audits} projects={projects} onEdit={setAuditModal} onDelete={deleteAudit} />}
-            {activeView === "refunds" && <RefundsView refunds={refunds} projects={projects} onEdit={setRefundModal} onDelete={deleteRefund} />}
+            {activeView === "refunds" && <RefundsView refunds={refunds} projects={projects} onNavigate={navigate} onEdit={setRefundModal} onDelete={deleteRefund} />}
             {activeView === "team" && <TeamView team={team} projects={projects} onAdd={()=>setTeamModal({})} onEdit={setTeamModal} onDelete={deleteTeam} />}
             {activeView === "research" && <ResearchView />}
             {activeView === "reports" && <ReportsView projects={projects} team={team} audits={audits} refunds={refunds} />}
