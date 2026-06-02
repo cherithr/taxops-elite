@@ -1947,19 +1947,41 @@ const deriveRefundsFromProjects = (projects) =>
 
 const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
   const derived = useMemo(() => deriveRefundsFromProjects(projects), [projects]);
-  const dbKeys = useMemo(() => new Set(refunds.map(r => `${r.client}|${r.state}`)), [refunds]);
-  const merged = useMemo(() => [
-    ...refunds,
-    ...derived.filter(d => !dbKeys.has(`${d.client}|${d.state}`)),
-  ], [refunds, derived, dbKeys]);
+  
+  // 1. Create a map of database edits
+  const dbMap = useMemo(() => {
+    const m = {};
+    refunds.forEach(r => { m[`${r.client}|${r.state}`] = r; });
+    return m;
+  }, [refunds]);
+
+  // 2. Properly merge live project estimates with manual database edits
+  const merged = useMemo(() => {
+    const derivedRows = derived.map(d => {
+      const dbRef = dbMap[`${d.client}|${d.state}`];
+      return {
+        ...d,
+        filed: dbRef?.filed || 0,
+        recovered: dbRef?.recovered || 0,
+        pct: dbRef?.pct || 0,
+        status: dbRef?.status || d.status,
+        id: dbRef?.id, // Keeps the link to the DB so edits save correctly
+        _derived: true 
+      };
+    });
+
+    const derivedKeys = new Set(derived.map(d => `${d.client}|${d.state}`));
+    const standaloneRows = refunds.filter(r => !derivedKeys.has(`${r.client}|${r.state}`));
+
+    return [...derivedRows, ...standaloneRows].sort((a, b) => (b.estimated || 0) - (a.estimated || 0));
+  }, [derived, dbMap, refunds]);
 
   const totalEst = useMemo(()=>merged.reduce((a,r)=>a+(r.estimated||0),0),[merged]);
   const totalFiled = useMemo(()=>merged.reduce((a,r)=>a+(r.filed||0),0),[merged]);
   const totalRec = useMemo(()=>merged.reduce((a,r)=>a+(r.recovered||0),0),[merged]);
 
   return (
-    <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%",
-      display:"flex",flexDirection:"column",gap:20 }}>
+    <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%", display:"flex",flexDirection:"column",gap:20 }}>
       <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
         <SectionHeader title="Refund Tracker" sub="Recovery pipeline · Auto-derived from Projects · Filing status · Estimated vs. actual savings" />
         <span style={{ fontSize:11,color:T.text3 }}>🔄 Live from Projects</span>
@@ -2016,8 +2038,12 @@ const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
               </div>
             </div>
             <div style={{ display:"flex",gap:8,marginTop:14 }}>
-              {!r._derived && <button className="btn-ghost" style={{ fontSize:12,padding:"7px 14px",borderRadius:8 }} onClick={()=>onEdit(r)}>✏ Edit</button>}
+              {/* 🟢 FIXED: The Edit button now shows for ALL refunds so you can log progress */}
+              <button className="btn-ghost" style={{ fontSize:12,padding:"7px 14px",borderRadius:8 }} onClick={()=>onEdit(r)}>✏ Edit Progress</button>
+              
               <button className="btn-ghost" style={{ fontSize:12,padding:"7px 14px",borderRadius:8 }}>Upload Correspondence</button>
+              
+              {/* We still hide the Delete button for auto-projects. You must delete the refund from the Project card instead. */}
               {!r._derived && (
                 <button className="btn-ghost" style={{ fontSize:12,padding:"7px 14px",borderRadius:8, borderColor:`${T.crimson}40`,color:T.crimson }} onClick={()=>onDelete(r.id)}>✕</button>
               )}
@@ -2028,7 +2054,6 @@ const RefundsView = ({ refunds, projects, onEdit, onDelete }) => {
     </div>
   );
 };
-
 // ─── TEAM MODAL ──────────────────────────────────────────────────────────────
 const TEAM_DEFAULTS = { name:"", role:"Staff", avatar:"", color:TEAM_COLORS[0], projects:0, utilization:0, expertise:[], status:"active" };
 const TeamModal = ({ initial, onClose }) => {
