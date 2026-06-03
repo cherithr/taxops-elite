@@ -719,6 +719,16 @@ if (form.id) {
         <input style={inputStyle()} value={Array.isArray(form.states)?form.states.join(", "):form.states}
           onChange={e=>set("states",e.target.value)} placeholder="TX, CA, NY" />
       </Field>
+
+      {/* 🟢 NEW: Notes / Comments Field */}
+      <Field label="Notes / Comments">
+        <textarea 
+          style={{ ...inputStyle(), height: 80, resize: "vertical", fontFamily: "inherit" }} 
+          value={form.notes || ""} 
+          onChange={e=>set("notes", e.target.value)} 
+          placeholder="Add status updates, call notes, or phase details here..." 
+        />
+      </Field>
     </Modal>
   );
 };
