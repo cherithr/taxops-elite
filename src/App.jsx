@@ -715,10 +715,10 @@ if (form.id) {
           onChange={e=>set("states",e.target.value)} placeholder="TX, CA, NY" />
       </Field>
 
-      {/* 🟢 NEW: Notes / Comments Field */}
+      {/* 🟢 FIXED: Using the style helper safely to prevent React crashes */}
       <Field label="Notes / Comments">
         <textarea 
-          style={{ ...inputStyle(), height: 80, resize: "vertical", fontFamily: "inherit" }} 
+          style={inputStyle({ height: 80, resize: "vertical" })} 
           value={form.notes || ""} 
           onChange={e=>set("notes", e.target.value)} 
           placeholder="Add status updates, call notes, or phase details here..." 
