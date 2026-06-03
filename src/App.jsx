@@ -493,7 +493,6 @@ const Modal = ({ title, onClose, onSave, saving, children }) => (
     </div>
   </div>
 );
-};
 
 // ─── PROJECT MODAL ────────────────────────────────────────────────────────────
 const PROJECT_DEFAULTS = {
