@@ -1903,10 +1903,7 @@ const AuditsView = ({ audits, projects, onEdit, onDelete }) => {
               ))}
             </div>
             <div style={{ display:"flex",gap:8 }}>
-              <button className="btn-primary" style={{ fontSize:12,padding:"8px 16px",borderRadius:8 }}>View IDR Log</button>
-              <button className="btn-ghost" style={{ fontSize:12,padding:"8px 16px",borderRadius:8 }}>Upload Document</button>
-              <button className="btn-ghost" style={{ fontSize:12,padding:"8px 16px",borderRadius:8 }}>Draft Response</button>
-              {!a._derived && <button className="btn-ghost" style={{ fontSize:12,padding:"8px 16px",borderRadius:8 }} onClick={()=>onEdit(a)}>Edit</button>}
+              {!a._derived && <button className="btn-ghost" style={{ fontSize:12,padding:"8px 16px",borderRadius:8 }} onClick={()=>onEdit(a)}>✏ Edit</button>}
               {!a._derived && (
                 <button className="btn-ghost" style={{ fontSize:12,padding:"8px 16px",borderRadius:8, borderColor:`${T.crimson}40`,color:T.crimson, marginLeft:"auto" }} onClick={()=>onDelete(a.id)}>✕ Remove</button>
               )}
