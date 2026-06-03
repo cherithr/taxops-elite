@@ -503,11 +503,11 @@ const Field = ({ label, children }) => (
 const PROJECT_DEFAULTS = {
   client:"", engagement:"", type:"Reverse Audit", tax:"Sales & Use Tax",
   states:[], exposure:0, refund:0, risk:"Medium", priority:"Medium",
-  status:"Planning", health:50, nexus:"Economic",
+  status:"Planning", health:50, nexus:"TBD",
   leadStaff:"",
   assignedTeam:[],
   due:"",
-  tasks:0, open:0, billingType:"Fixed Fee", period:"",
+  tasks:0, open:0, billingType:"Fixed Fee", period:"", notes:"" // 🟢 ADDED NOTES HERE
 };
 const ProjectModal = ({ initial, onClose, teamMembers }) => {
   const [form, setForm] = useState({
