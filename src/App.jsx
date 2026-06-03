@@ -394,6 +394,15 @@ const GlobalStyles = () => (
 const Badge = ({ label, color }) => (
   <span className="tag" style={{ background:`${color}18`, color, border:`1px solid ${color}30` }}>{label}</span>
 );
+
+const Field = ({ label, children }) => (
+  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <label style={{ fontSize: 11, fontWeight: 700, color: T.text2, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+      {label}
+    </label>
+    {children}
+  </div>
+);
 const HealthBar = ({ value }) => {
   const color = value>=80?T.emerald:value>=50?T.amber:T.crimson;
   return (
