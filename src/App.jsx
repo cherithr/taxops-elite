@@ -1710,13 +1710,12 @@ const rows = useMemo(() => {
         <MetricCard label="High Risk" value={highRisk} sub="need attention" color={T.amber} icon="⚠" delay={100} />
         <MetricCard label="Total Exposure" value={totalExp} sub="across all states" color={T.emerald} icon="⬡" delay={150} />
       </div>
-      <div className="card" style={{ overflow:"hidden" }}>
+      <div className="card" style={{ overflow:"auto", flex: 1, minHeight: 400 }}>
         <table style={{ width:"100%",borderCollapse:"collapse" }}>
           <thead>
-            <tr style={{ borderBottom:`1px solid ${T.border}`,background:T.bg3 }}>
+            <tr>
               {["State","Nexus","Status","Exposure","Tax Type","Projects","Risk","Earliest Due","Actions"].map(h=>(
-                <th key={h} style={{ padding:"10px 14px",textAlign:"left",fontSize:10,
-                  fontWeight:700,color:T.text3,letterSpacing:"0.06em",textTransform:"uppercase" }}>{h}</th>
+                <th key={h} style={{ position:"sticky", top:0, zIndex:10, padding:"10px 14px",textAlign:"left",fontSize:10, fontWeight:700,color:T.text3,letterSpacing:"0.06em",textTransform:"uppercase", background:T.bg3, borderBottom:`1px solid ${T.border}` }}>{h}</th>
               ))}
             </tr>
           </thead>
