@@ -502,8 +502,9 @@ const PROJECT_DEFAULTS = {
   leadStaff:"",
   assignedTeam:[],
   due:"",
-  tasks:0, open:0, billingType:"Fixed Fee", period:"", notes:"" // 🟢 ADDED NOTES HERE
+  tasks:0, open:0, billingType:"Fixed Fee", period:"", notes:""
 };
+
 const ProjectModal = ({ initial, onClose, teamMembers }) => {
   const [form, setForm] = useState({
     ...PROJECT_DEFAULTS,
@@ -525,11 +526,8 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
       assignedTeam: form.assignedTeam,
     };
     
-if (form.id) {
+    if (form.id) {
       await updateDocById(COLS.projects, form.id, data);
-
-      // ── CASCADE STATUS & DUE DATE TO UNDERLYING KANBAN TASKS ──
-      // Runs on EDIT (form.id exists). Synchronizes macro-changes down to task level.
       try {
         const qTasks = query(collection(db, COLS.tasks), where("project", "==", form.client));
         const querySnap = await getDocs(qTasks);
@@ -538,19 +536,15 @@ if (form.id) {
           const batch = writeBatch(db);
           const taskUpdates = {};
           
-          // 1. Cascade Status (only if the project status matches a Kanban lane)
           if (TASK_COLS.includes(form.status)) {
             taskUpdates.status = form.status;
           }
-          
-          // 2. Cascade Due Date
           if (form.due) {
             taskUpdates.due = form.due;
           }
 
-          // If there's anything to update, push it to all linked tasks
           if (Object.keys(taskUpdates).length > 0) {
-            taskUpdates.updatedAt = new Date(); // Using native Date for batch compatibility
+            taskUpdates.updatedAt = new Date();
             querySnap.docs.forEach(taskDoc => {
               batch.update(taskDoc.ref, taskUpdates);
             });
@@ -594,12 +588,10 @@ if (form.id) {
           </select>
         </Field>
         
-        {/* 🟢 NEW CODE: Expanded Categorized Nexus Types */}
         {form.type === "Nexus Study" && (
           <Field label="Nexus Focus">
             <select style={inputStyle({ borderColor: T.violet })} value={form.nexus || "TBD"} onChange={e=>set("nexus",e.target.value)}>
               <option value="TBD">Select trigger or TBD...</option>
-              
               <optgroup label="Physical Nexus">
                 <option value="Physical - Office">Office</option>
                 <option value="Physical - Warehouse">Warehouse</option>
@@ -608,25 +600,21 @@ if (form.id) {
                 <option value="Physical - Property">Property</option>
                 <option value="Physical - Vehicles">Vehicles</option>
               </optgroup>
-              
               <optgroup label="Economic Nexus">
                 <option value="Economic - Revenue Threshold">Revenue Threshold</option>
                 <option value="Economic - Transaction Threshold">Transaction Threshold</option>
               </optgroup>
-              
               <optgroup label="Attributional Nexus">
                 <option value="Attributional - Affiliate">Affiliate</option>
                 <option value="Attributional - Click-Through">Click-Through</option>
                 <option value="Attributional - Agency">Agency</option>
               </optgroup>
-              
               <optgroup label="Operational Nexus">
                 <option value="Operational - Services">Services</option>
                 <option value="Operational - Installation">Installation</option>
                 <option value="Operational - Repair">Repair</option>
                 <option value="Operational - Training">Training</option>
               </optgroup>
-              
               <optgroup label="Intangible Nexus">
                 <option value="Intangible - Royalties">Royalties</option>
                 <option value="Intangible - Licensing">Licensing</option>
@@ -715,7 +703,6 @@ if (form.id) {
           onChange={e=>set("states",e.target.value)} placeholder="TX, CA, NY" />
       </Field>
 
-      {/* 🟢 FIXED: Using the style helper safely to prevent React crashes */}
       <Field label="Notes / Comments">
         <textarea 
           style={inputStyle({ height: 80, resize: "vertical" })} 
@@ -727,7 +714,6 @@ if (form.id) {
     </Modal>
   );
 };
-
 // ─── TASK MODAL ───────────────────────────────────────────────────────────────
 const TASK_DEFAULTS = { title:"", project:"", priority:"Medium", status:"Planning", due:"", assignee:"", hours:0, estimate:8 };
 const TaskModal = ({ initial, onClose, projects, teamMembers }) => {
