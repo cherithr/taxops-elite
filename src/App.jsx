@@ -467,18 +467,22 @@ const Modal = ({ title, onClose, onSave, saving, children }) => (
     zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(8px)" }}>
     <div onClick={e=>e.stopPropagation()} className="glass-card fadeUp"
       style={{ width:"100%",maxWidth:520,borderRadius:16,overflow:"hidden",
-        boxShadow:"0 40px 100px rgba(0,0,0,0.7)" }}>
+        boxShadow:"0 40px 100px rgba(0,0,0,0.7)", display:"flex", flexDirection:"column", maxHeight:"90vh" }}>
+      
       <div style={{ padding:"18px 22px",borderBottom:`1px solid ${T.border}`,
-        display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+        display:"flex",justifyContent:"space-between",alignItems:"center", flexShrink:0 }}>
         <h3 style={{ fontSize:15,fontWeight:700,color:T.text0 }}>{title}</h3>
         <button onClick={onClose} className="btn-ghost"
           style={{ width:28,height:28,borderRadius:8,fontSize:14,padding:0,
             display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
       </div>
-      <div style={{ padding:"20px 22px",display:"flex",flexDirection:"column",gap:14 }}>
+      
+      {/* 🟢 FIXED: Added overflowY: "auto" so the content area scrolls */}
+      <div style={{ padding:"20px 22px",display:"flex",flexDirection:"column",gap:14, overflowY:"auto" }}>
         {children}
       </div>
-      <div style={{ padding:"14px 22px",borderTop:`1px solid ${T.border}`,display:"flex",gap:8,justifyContent:"flex-end" }}>
+      
+      <div style={{ padding:"14px 22px",borderTop:`1px solid ${T.border}`,display:"flex",gap:8,justifyContent:"flex-end", flexShrink:0 }}>
         <button className="btn-ghost" style={{ fontSize:13,padding:"8px 18px",borderRadius:8 }}
           onClick={onClose}>Cancel</button>
         <button className="btn-primary" style={{ fontSize:13,padding:"8px 18px",borderRadius:8 }}
@@ -487,15 +491,6 @@ const Modal = ({ title, onClose, onSave, saving, children }) => (
         </button>
       </div>
     </div>
-  </div>
-);
-
-const Field = ({ label, children }) => (
-  <div style={{ display:"flex",flexDirection:"column",gap:5 }}>
-    <label style={{ fontSize:11,fontWeight:700,color:T.text3,letterSpacing:"0.06em",textTransform:"uppercase" }}>
-      {label}
-    </label>
-    {children}
   </div>
 );
 
