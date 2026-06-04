@@ -517,6 +517,7 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
       // ─── UPDATING AN EXISTING PROJECT ───
       await updateDocById(COLS.projects, form.id, data);
       try {
+        // Query tasks by User ID to pass security, then filter by Project in memory to bypass index requirements
         const qTasks = query(collection(db, COLS.tasks), where("userId", "==", auth.currentUser.uid));
         const querySnap = await getDocs(qTasks);
         const projectTasks = querySnap.docs.filter(doc => doc.data().project === form.client);
@@ -524,7 +525,11 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
         if (projectTasks.length > 0 && TASK_COLS.includes(form.status)) {
           const batch = writeBatch(db);
           projectTasks.forEach(taskDoc => {
-            batch.update(taskDoc.ref, { status: form.status, due: form.due || taskDoc.data().due, updatedAt: new Date() });
+            batch.update(taskDoc.ref, { 
+              status: form.status, 
+              due: form.due || taskDoc.data().due, 
+              updatedAt: new Date() 
+            });
           });
           await batch.commit();
         }
@@ -533,10 +538,10 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
       }
     } else {
       // ─── CREATING A NEW PROJECT (WITH AUTO-TASKS!) ───
-      await createDoc(COLS.projects, data);
-      
       try {
-        // Automatically create default tasks so the Kanban board instantly populates!
+        await createDoc(COLS.projects, data);
+        
+        // Automatically generate default tasks for the Kanban board
         const batch = writeBatch(db);
         const defaultTasks = [
           { title: "Phase 1: Project Kickoff & Planning", estimate: 2 },
@@ -545,22 +550,23 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
         ];
 
         defaultTasks.forEach(t => {
-          const taskRef = doc(collection(db, COLS.tasks)); // Create a new ID
+          const taskRef = doc(collection(db, COLS.tasks)); 
           batch.set(taskRef, {
             ...t,
-            project: form.client,            // AUTO-TAGGED to the new project!
-            status: form.status,             // MATCHES the project's starting status!
-            priority: form.priority,
+            project: form.client,            // Auto-linked to the new client
+            status: form.status || "Planning", 
+            priority: form.priority || "Medium",
             due: form.due || "",
-            assignee: form.leadStaff || "",  // AUTO-ASSIGNED to the lead!
+            assignee: form.leadStaff || "",  // Auto-assigned to the Lead Staff
             hours: 0,
             userId: auth.currentUser.uid,    // Securely locked to this user
             createdAt: new Date()
           });
         });
+        
         await batch.commit();
       } catch (err) {
-        console.error("Failed to auto-generate default tasks:", err);
+        console.error("Creation error:", err);
       }
     }
     setSaving(false);
@@ -602,10 +608,29 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
                 <option value="Physical - Office">Office</option>
                 <option value="Physical - Warehouse">Warehouse</option>
                 <option value="Physical - Inventory">Inventory</option>
+                <option value="Physical - Employees">Employees</option>
+                <option value="Physical - Property">Property</option>
+                <option value="Physical - Vehicles">Vehicles</option>
               </optgroup>
               <optgroup label="Economic Nexus">
                 <option value="Economic - Revenue Threshold">Revenue Threshold</option>
                 <option value="Economic - Transaction Threshold">Transaction Threshold</option>
+              </optgroup>
+              <optgroup label="Attributional Nexus">
+                <option value="Attributional - Affiliate">Affiliate</option>
+                <option value="Attributional - Click-Through">Click-Through</option>
+                <option value="Attributional - Agency">Agency</option>
+              </optgroup>
+              <optgroup label="Operational Nexus">
+                <option value="Operational - Services">Services</option>
+                <option value="Operational - Installation">Installation</option>
+                <option value="Operational - Repair">Repair</option>
+                <option value="Operational - Training">Training</option>
+              </optgroup>
+              <optgroup label="Intangible Nexus">
+                <option value="Intangible - Royalties">Royalties</option>
+                <option value="Intangible - Licensing">Licensing</option>
+                <option value="Intangible - Intellectual Property">Intellectual Property</option>
               </optgroup>
             </select>
           </Field>
@@ -659,8 +684,30 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
                 fontSize: 9, fontWeight: 700, color: "#fff",
               }}>{(m.avatar || m.name?.slice(0,2) || "?").toUpperCase()}</span>
               <span>{m.name}</span>
+              {!compact && <span style={{ color: T.text3, marginLeft: 4 }}>— {m.role}</span>}
             </span>
           )} />
+      </Field>
+
+      <Field label="Assigned Team">
+        {teamMembers.length === 0
+          ? <div style={{ fontSize:12,color:T.text3,padding:"10px 12px", background:T.bg3,borderRadius:8,border:`1px solid ${T.border}` }}>
+              No team members yet — add staff first under Team &amp; Workload
+            </div>
+          : <SearchableMultiSelect
+              options={teamMembers}
+              value={form.assignedTeam}
+              onChange={v => set("assignedTeam", v)}
+              placeholder="Search and select team members…"
+              getLabel={m => m.name}
+              renderOption={(m) => (
+                <span style={{ display:"flex",alignItems:"center",gap:8 }}>
+                  <span style={{ width:22,height:22,borderRadius:"50%",flexShrink:0, background:m.color||T.blue, display:"inline-flex",alignItems:"center",justifyContent:"center", fontSize:9,fontWeight:700,color:"#fff" }}>{(m.avatar||m.name?.slice(0,2)||"?").toUpperCase()}</span>
+                  <span>{m.name}</span>
+                  <span style={{ color:T.text3,marginLeft:2 }}>— {m.role}</span>
+                </span>
+              )} />
+        }
       </Field>
 
       <Field label="States (comma-separated)">
@@ -673,6 +720,7 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
           style={inputStyle({ height: 80, resize: "vertical" })} 
           value={form.notes || ""} 
           onChange={e=>set("notes", e.target.value)} 
+          placeholder="Add status updates, call notes, or phase details here..." 
         />
       </Field>
     </Modal>
