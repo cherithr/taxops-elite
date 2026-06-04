@@ -1495,89 +1495,71 @@ const ProjectsView = ({ projects, team, onEdit, onDelete }) => {
 };
 
 // ─── TASKS VIEW ───────────────────────────────────────────────────────────────
-const TasksView = ({ tasks, projects, team, onEdit, onDelete }) => {
-  const tasksByCol = useMemo(()=>{
+// ─── KANBAN BOARD (SYNCED DIRECTLY TO PROJECTS) ──────────────────────────────
+const TasksView = ({ projects, team, onEdit, onDelete }) => {
+  // 1. Group projects by their status
+  const projectsByCol = useMemo(() => {
     const map = {};
-    TASK_COLS.forEach(c=>{ map[c] = tasks.filter(t=>t.status===c); });
+    TASK_COLS.forEach(c => { map[c] = projects.filter(p => p.status === c); });
     return map;
-  },[tasks]);
-  const moveTask = useCallback(async (task, newStatus) => {
-    await updateDocById(COLS.tasks, task.id, { status: newStatus });
-  },[]);
+  }, [projects]);
+
+  // 2. Moving a card directly updates the Project status in Firebase
+  const moveProject = useCallback(async (project, newStatus) => {
+    await updateDocById(COLS.projects, project.id, { status: newStatus, updatedAt: new Date() });
+  }, []);
+
   return (
-    <div style={{ padding:"28px 32px",height:"100%",display:"flex",
-      flexDirection:"column",gap:20,overflow:"hidden" }}>
-      <SectionHeader title="Task Board" sub={`${tasks.length} active tasks · Kanban board responds dynamically to Project updates`} />
+    <div style={{ padding:"28px 32px",height:"100%",display:"flex", flexDirection:"column",gap:20,overflow:"hidden" }}>
+      <SectionHeader title="Project Board" sub={`${projects.length} active engagements · Kanban board is 100% synced with your Projects tab`} />
       <div style={{ display:"flex",gap:12,overflowX:"auto",flex:1,paddingBottom:8 }}>
         {TASK_COLS.map(col=>(
-          <div key={col} style={{ minWidth:280,display:"flex",flexDirection:"column" }}>
-            <div style={{ padding:"10px 12px",background:T.bg2,
-              borderRadius:"12px 12px 0 0",border:`1px solid ${T.border}`,borderBottom:"none",
-              display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+          <div key={col} style={{ minWidth:290,display:"flex",flexDirection:"column" }}>
+            
+            {/* Column Header */}
+            <div style={{ padding:"10px 12px",background:T.bg2, borderRadius:"12px 12px 0 0",border:`1px solid ${T.border}`,borderBottom:"none", display:"flex",justifyContent:"space-between",alignItems:"center" }}>
               <span style={{ fontSize:12,fontWeight:700,color:T.text1,letterSpacing:"0.02em" }}>{col}</span>
               <span style={{ fontSize:11,background:T.bg4,color:T.text3,padding:"2px 8px",borderRadius:20 }}>
-                {tasksByCol[col]?.length||0}
+                {projectsByCol[col]?.length||0}
               </span>
             </div>
-            <div style={{ flex:1,background:`${T.bg2}44`,border:`1px solid ${T.border}`,
-              borderTop:"none",borderRadius:"0 0 12px 12px",padding:8,
-              display:"flex",flexDirection:"column",gap:8,minHeight:400,overflowY:"auto" }}>
-              {(tasksByCol[col]||[]).map((t,i)=>(
-                <div key={t.id} className="card hover-lift fadeUp"
-                  style={{ padding:"14px",cursor:"grab",animationDelay:`${i*50}ms` }}>
-                  <div style={{ display:"flex",justifyContent:"space-between",
-                    alignItems:"flex-start",marginBottom:8 }}>
-                    <span style={{ fontSize:12,fontWeight:600,color:T.text0,
-                      lineHeight:1.4,flex:1,paddingRight:8 }}>{t.title}</span>
-                    <Badge label={t.priority} color={priorityColor(t.priority)} />
+            
+            {/* Column Body */}
+            <div style={{ flex:1,background:`${T.bg2}44`,border:`1px solid ${T.border}`, borderTop:"none",borderRadius:"0 0 12px 12px",padding:8, display:"flex",flexDirection:"column",gap:8,minHeight:400,overflowY:"auto" }}>
+              {(projectsByCol[col]||[]).map((p,i)=>(
+                <div key={p.id} className="card hover-lift fadeUp" style={{ padding:"14px",cursor:"grab",animationDelay:`${i*50}ms`, borderTop:`2px solid ${riskColor(p.risk)}33` }}>
+                  
+                  <div style={{ display:"flex",justifyContent:"space-between", alignItems:"flex-start",marginBottom:8 }}>
+                    <span style={{ fontSize:13,fontWeight:700,color:T.text0, lineHeight:1.4,flex:1,paddingRight:8 }}>{p.client}</span>
+                    <Badge label={p.priority} color={priorityColor(p.priority)} />
                   </div>
-                  <div style={{ fontSize:11,color:T.text2,marginBottom:10,fontWeight:600 }}>💼 {t.project}</div>
-                  <div style={{ display:"flex",justifyContent:"space-between",
-                    alignItems:"center",marginBottom:10 }}>
+                  
+                  <div style={{ fontSize:11,color:T.text2,marginBottom:10,fontWeight:500,lineHeight:1.4 }}>{p.engagement}</div>
+                  
+                  <div style={{ display:"flex",justifyContent:"space-between", alignItems:"center",marginBottom:10 }}>
                     <div style={{ display:"flex",alignItems:"center",gap:6 }}>
                       <Avatar
-                        initials={(t.assignee||"?").split(" ").map(n=>n[0]).join("")}
-                        color={team.find(m=>m.name===t.assignee)?.color||T.blue}
+                        initials={(p.leadStaff||"?").split(" ").map(n=>n[0]).join("")}
+                        color={team.find(m=>m.name===p.leadStaff)?.color||T.blue}
                         size={22} />
-                      <span style={{ fontSize:11,color:T.text2 }}>{(t.assignee||"").split(" ")[0]}</span>
+                      <span style={{ fontSize:11,color:T.text2 }}>{(p.leadStaff||"Unassigned").split(" ")[0]}</span>
                     </div>
-                    <span style={{ fontSize:11,fontWeight:600,color:daysColor(t.due) }}>📅 {t.due ? daysLabel(t.due) : "No date"}</span>
+                    <span style={{ fontSize:11,fontWeight:600,color:daysColor(p.due) }}>{p.due ? `📅 ${daysLabel(p.due)}` : "No date"}</span>
                   </div>
-                  <div>
-                    <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}>
-                      <span style={{ fontSize:10,color:T.text3 }}>{t.hours}h / {t.estimate}h logged</span>
-                      <span style={{ fontSize:10,color:T.text3 }}>
-                        {t.estimate>0?Math.round((t.hours/t.estimate)*100):0}%
-                      </span>
-                    </div>
-                    <div className="progress-bar">
-                      <div className="progress-fill" style={{
-                        width:t.estimate>0?`${Math.min((t.hours/t.estimate)*100,100)}%`:"0%",
-                        background:T.blue }} />
-                    </div>
-                  </div>
+                  
                   <div style={{ display:"flex",gap:6,marginTop:10,flexWrap:"wrap" }}>
                     {TASK_COLS.filter(c=>c!==col).map(c=>(
-                      <button key={c} className="btn-ghost"
-                        style={{ fontSize:10,padding:"2px 7px",borderRadius:5 }}
-                        onClick={()=>moveTask(t,c)}>→ {c}</button>
+                      <button key={c} className="btn-ghost" style={{ fontSize:10,padding:"2px 7px",borderRadius:5 }} onClick={()=>moveProject(p,c)}>→ {c}</button>
                     ))}
-                    <button className="btn-ghost"
-                      style={{ fontSize:10,padding:"2px 7px",borderRadius:5 }}
-                      onClick={()=>onEdit(t)}>✏</button>
-                    <button className="btn-ghost"
-                      style={{ fontSize:10,padding:"2px 7px",borderRadius:5,
-                        borderColor:`${T.crimson}40`,color:T.crimson }}
-                      onClick={()=>onDelete(t.id)}>✕</button>
+                    <button className="btn-ghost" style={{ fontSize:10,padding:"2px 7px",borderRadius:5 }} onClick={()=>onEdit(p)}>✏ Edit Project</button>
                   </div>
+                  
                 </div>
               ))}
-              {(tasksByCol[col]||[]).length===0 && (
-                <div style={{ flex:1,display:"flex",alignItems:"center",
-                  justifyContent:"center",color:T.text3,fontSize:12,
-                  flexDirection:"column",gap:8,padding:24,opacity:0.6 }}>
+              {(projectsByCol[col]||[]).length===0 && (
+                <div style={{ flex:1,display:"flex",alignItems:"center", justifyContent:"center",color:T.text3,fontSize:12, flexDirection:"column",gap:8,padding:24,opacity:0.6 }}>
                   <span style={{ fontSize:24 }}>◻</span>
-                  <span>No tasks</span>
+                  <span>Empty</span>
                 </div>
               )}
             </div>
@@ -2448,7 +2430,31 @@ export default function App() {
     return ()=>window.removeEventListener("keydown",handler);
   },[]);
 
-  const deleteProject = useCallback((id)=>{ if(window.confirm("Delete project?")) deleteDocById(COLS.projects,id); },[]);
+  const deleteProject = useCallback(async (id) => {
+    if (!window.confirm("Delete project and all its associated tasks?")) return;
+    try {
+      // 1. Fetch the project so we know which client name to look for
+      const pRef = doc(db, COLS.projects, id);
+      const pSnap = await getDoc(pRef);
+      if (!pSnap.exists()) return;
+      
+      const clientName = pSnap.data().client;
+      
+      // 2. Fetch all your tasks and filter them locally to avoid Firebase Index errors
+      const qTasks = query(collection(db, COLS.tasks), where("userId", "==", authUser.uid));
+      const tSnap = await getDocs(qTasks);
+      const tasksToDelete = tSnap.docs.filter(d => d.data().project === clientName);
+      
+      // 3. Batch delete the project AND all its orphaned tasks at the exact same time
+      const batch = writeBatch(db);
+      batch.delete(pRef); 
+      tasksToDelete.forEach(t => batch.delete(t.ref)); 
+      
+      await batch.commit();
+    } catch (err) {
+      console.error("Failed to delete project and tasks:", err);
+    }
+  }, [authUser]);
   const deleteTask = useCallback((id)=>{ if(window.confirm("Delete task?")) deleteDocById(COLS.tasks,id); },[]);
   const deleteState = useCallback((id)=>{ if(window.confirm("Delete state?")) deleteDocById(COLS.states,id); },[]);
   const deleteAudit = useCallback((id)=>{ if(window.confirm("Delete audit?")) deleteDocById(COLS.audits,id); },[]);
@@ -2508,7 +2514,7 @@ export default function App() {
           <main style={{ flex:1,overflow:"hidden" }}>
             {activeView === "dashboard" && <DashboardView onNavigate={navigate} projects={projects} audits={audits} team={team} />}
             {activeView === "projects" && <ProjectsView projects={projects} team={team} onEdit={setProjectModal} onDelete={deleteProject} />}
-            {activeView === "tasks" && <TasksView tasks={tasks} projects={projects} team={team} onEdit={setTaskModal} onDelete={deleteTask} />}
+            {activeView === "tasks" && <TasksView projects={projects} team={team} onEdit={setProjectModal} onDelete={deleteProject} />}
             {activeView === "states" && <StatesView states={states} projects={projects} onEdit={setStateModal} onDelete={deleteState} />}
             {activeView === "audits" && <AuditsView audits={audits} projects={projects} onEdit={setAuditModal} onDelete={deleteAudit} />}
             {activeView === "refunds" && <RefundsView refunds={refunds} projects={projects} onNavigate={navigate} onEdit={setRefundModal} onDelete={deleteRefund} />}
