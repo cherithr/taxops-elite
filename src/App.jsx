@@ -1466,8 +1466,10 @@ const DashboardView = ({ onNavigate, projects, audits, team }) => {
               onClick={()=>onNavigate("tasks")}>⬡ Quick Add</button>
           </div>
         </div>
-        {(urgentAudit || overloadedMember) && (
+        {/* 🟢 UPDATED WRAPPER: Now checks for urgent audits, overloaded members, OR upcoming renewals! */}
+        {(urgentAudit || overloadedMember || upcomingRenewals?.length > 0) && (
           <div style={{ display:"flex",gap:8,marginTop:14 }}>
+            
             {urgentAudit && (
               <AlertBanner color={T.crimson} icon="⚑" badge="URGENT"
                 text={<>
@@ -1476,6 +1478,7 @@ const DashboardView = ({ onNavigate, projects, audits, team }) => {
                 </>}
                 cta="View →" onClick={()=>onNavigate("audits")} />
             )}
+            
             {overloadedMember && (
               <AlertBanner color={T.amber} icon="◉" badge="OVERLOADED"
                 text={<>
@@ -1485,6 +1488,16 @@ const DashboardView = ({ onNavigate, projects, audits, team }) => {
                 </>}
                 cta="Rebalance →" onClick={()=>onNavigate("team")} />
             )}
+
+            {/* 🟢 NEW: The Renewals Alert Banner dropped right here! */}
+            {upcomingRenewals?.length > 0 && (
+              <AlertBanner color={T.blue} icon="↻" badge="RENEWALS"
+                text={<>
+                  You have <strong style={{color:T.blue}}>{upcomingRenewals.length} client follow-ups</strong> scheduled in the next 60 days.
+                </>}
+                cta="View Projects →" onClick={()=>onNavigate("projects")} />
+            )}
+
           </div>
         )}
       </div>
