@@ -39,9 +39,9 @@ const NAV_ITEMS = [
   { id:"copilot", icon:"✦", label:"Tax Copilot AI" },
 ];
 const PROJECT_TYPES = [
-  "Reverse Audit","Nexus Study","Refund Review","Audit Defense",
-  "Taxability Research","Compliance Review","VDA / Voluntary Disclosure",
-  "Tax Planning","Due Diligence","Other",
+  "Reverse Audit","Nexus Study","Audit Defense",
+  "Taxability Research","Recurring Compliance",
+  "VDA / Voluntary Disclosure","Tax Planning","Due Diligence","Other",
 ];
 const TAX_TYPES = [
   "Sales & Use Tax","Severance Tax","Excise Tax","Property Tax",
@@ -488,11 +488,14 @@ const PROJECT_DEFAULTS = {
   status:"Planning", health:50, nexus:"TBD",
   leadStaff:"", assignedTeam:[], due:"", tasks:0, open:0, billingType:"Fixed Fee", period:"", notes:"",
   
-  // Dynamic SUT Fields
+  // Dynamic SUT Fields (Cleaned up)
   apSpend: "", samplingMethod: "", auditorName: "", missingCerts: "", assessmentStage: "", 
   t12Revenue: "", transactionVolume: "", lookbackPeriod: "", penaltyTarget: "", 
-  targetProducts: "", deliverableType: "", avgMonthlyLiability: "", filingFrequency: "", 
-  targetCompany: "", materialityThreshold: ""
+  targetProducts: "", deliverableType: "", targetCompany: "", materialityThreshold: "",
+  
+  // Recurring Compliance Fields
+  prepResp: "", fileResp: "", fundResp: "", dataIngestion: "", 
+  noticeHandling: "", returnsMonthly: "", returnsQuarterly: "", returnsAnnual: ""
 };
 
 const ProjectModal = ({ initial, onClose, teamMembers }) => {
@@ -504,27 +507,26 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
   const [saving, setSaving] = useState(false);
   const set = (k,v) => setForm(p=>({...p,[k]:v}));
 
-  // ─── THE PREMIUM DYNAMIC LOGIC MATRIX ───
+  // ─── THE PREMIUM DYNAMIC LOGIC MATRIX (Streamlined) ───
   const isSUT = form.tax === "Sales & Use Tax";
   
-  const isRevAudit = form.type === "Reverse Audit" || form.type === "Refund Review";
+  const isRevAudit = form.type === "Reverse Audit";
   const isAuditDef = form.type === "Audit Defense";
   const isNexus    = form.type === "Nexus Study";
   const isVDA      = form.type === "VDA / Voluntary Disclosure";
   const isTaxPlan  = form.type === "Taxability Research" || form.type === "Tax Planning";
-  const isCompRev  = form.type === "Compliance Review";
+  const isRecurringComp = form.type === "Recurring Compliance";
   const isDueDil   = form.type === "Due Diligence";
 
   // Base Financial Triggers
   const showRefund   = isRevAudit || form.type === "Other";
-  const showExposure = isAuditDef || isNexus || isVDA || isDueDil || isCompRev || form.type === "Other";
+  const showExposure = isAuditDef || isNexus || isVDA || isDueDil || form.type === "Other";
 
   const save = async () => {
     if (!form.client.trim()) return;
     setSaving(true);
     
-    // 🛡 DATA SANITATION: Only save dynamic fields if their specific condition is currently active.
-    // This prevents database pollution if a user changes the project type mid-entry.
+    // 🛡 DATA SANITATION
     const data = { ...form,
       exposure: showExposure ? (Number(form.exposure) || 0) : 0,
       refund: showRefund ? (Number(form.refund) || 0) : 0,
@@ -544,10 +546,18 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
       penaltyTarget: (isSUT && isVDA) ? Number(form.penaltyTarget)||0 : "",
       targetProducts: (isSUT && isTaxPlan) ? form.targetProducts : "",
       deliverableType: (isSUT && isTaxPlan) ? form.deliverableType : "",
-      avgMonthlyLiability: (isSUT && isCompRev) ? Number(form.avgMonthlyLiability)||0 : "",
-      filingFrequency: (isSUT && isCompRev) ? form.filingFrequency : "",
       targetCompany: (isSUT && isDueDil) ? form.targetCompany : "",
       materialityThreshold: (isSUT && isDueDil) ? Number(form.materialityThreshold)||0 : "",
+
+      // Recurring Compliance Logistics
+      prepResp: (isSUT && isRecurringComp) ? form.prepResp : "",
+      fileResp: (isSUT && isRecurringComp) ? form.fileResp : "",
+      fundResp: (isSUT && isRecurringComp) ? form.fundResp : "",
+      dataIngestion: (isSUT && isRecurringComp) ? form.dataIngestion : "",
+      noticeHandling: (isSUT && isRecurringComp) ? form.noticeHandling : "",
+      returnsMonthly: (isSUT && isRecurringComp) ? Number(form.returnsMonthly)||0 : "",
+      returnsQuarterly: (isSUT && isRecurringComp) ? Number(form.returnsQuarterly)||0 : "",
+      returnsAnnual: (isSUT && isRecurringComp) ? Number(form.returnsAnnual)||0 : "",
     };
     
     if (form.id) {
@@ -615,7 +625,7 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
       </div>
 
       {/* ─── DYNAMIC SUT PARAMETER BLOCK ─── */}
-      {isSUT && (isRevAudit || isAuditDef || isNexus || isVDA || isTaxPlan || isCompRev || isDueDil) && (
+      {isSUT && (isRevAudit || isAuditDef || isNexus || isVDA || isTaxPlan || isRecurringComp || isDueDil) && (
         <div style={{ background:`${T.bg3}66`, border:`1px solid ${T.border}`, borderRadius:10, padding:"16px", marginTop:8, marginBottom:8 }}>
           <div style={{ fontSize:11, fontWeight:700, color:T.blue, letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:14, display:"flex", alignItems:"center", gap:8 }}>
             <span>⬡</span> {form.type} Parameters
@@ -708,18 +718,55 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
               </Field>
             </>}
 
-            {/* Compliance Review Specifics */}
-            {isCompRev && <>
-              <Field label="Avg Monthly Liability ($)">
-                <input style={inputStyle()} type="number" value={form.avgMonthlyLiability} onChange={e=>set("avgMonthlyLiability",e.target.value)} />
+            {/* Recurring Monthly Compliance Specifics */}
+            {isRecurringComp && <>
+              <div style={{ gridColumn: "1 / -1", background: T.bg2, padding: "12px 16px", borderRadius: 8, border: `1px solid ${T.borderHover}`, marginBottom: 4 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: T.text1, textTransform: "uppercase", marginBottom: 12, letterSpacing: "0.05em" }}>Responsibility Matrix</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                  <Field label="Preparation">
+                    <select style={inputStyle({ border: `1px solid ${T.blue}44` })} value={form.prepResp} onChange={e=>set("prepResp",e.target.value)}>
+                      <option value="">Select...</option>
+                      <option>Firm Prepares</option>
+                      <option>Client Prepares (Firm Reviews)</option>
+                    </select>
+                  </Field>
+                  <Field label="Filing / Submission">
+                    <select style={inputStyle({ border: `1px solid ${T.blue}44` })} value={form.fileResp} onChange={e=>set("fileResp",e.target.value)}>
+                      <option value="">Select...</option>
+                      <option>Firm Files</option>
+                      <option>Client Files</option>
+                    </select>
+                  </Field>
+                  <Field label="Funding / Payment">
+                    <select style={inputStyle({ border: `1px solid ${T.blue}44` })} value={form.fundResp} onChange={e=>set("fundResp",e.target.value)}>
+                      <option value="">Select...</option>
+                      <option>Client Pays Direct (Portal)</option>
+                      <option>Firm Escrow / ACH Debit</option>
+                      <option>Client Mails Check</option>
+                    </select>
+                  </Field>
+                </div>
+              </div>
+              <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+                <Field label="Monthly Returns"><input style={inputStyle()} type="number" value={form.returnsMonthly} onChange={e=>set("returnsMonthly",e.target.value)} placeholder="0" /></Field>
+                <Field label="Quarterly Returns"><input style={inputStyle()} type="number" value={form.returnsQuarterly} onChange={e=>set("returnsQuarterly",e.target.value)} placeholder="0" /></Field>
+                <Field label="Annual Returns"><input style={inputStyle()} type="number" value={form.returnsAnnual} onChange={e=>set("returnsAnnual",e.target.value)} placeholder="0" /></Field>
+              </div>
+              <Field label="Data Ingestion Method">
+                <select style={inputStyle()} value={form.dataIngestion} onChange={e=>set("dataIngestion",e.target.value)}>
+                  <option value="">Select method...</option>
+                  <option>Direct ERP Access (Read-Only)</option>
+                  <option>Client Uploads to Portal</option>
+                  <option>Automated API / Connector</option>
+                  <option>Emailed Reports</option>
+                </select>
               </Field>
-              <Field label="Filing Frequency">
-                <select style={inputStyle()} value={form.filingFrequency} onChange={e=>set("filingFrequency",e.target.value)}>
-                  <option value="">Select frequency...</option>
-                  <option>Monthly</option>
-                  <option>Quarterly</option>
-                  <option>Annually</option>
-                  <option>Prepay / Accelerated</option>
+              <Field label="Notice Management">
+                <select style={inputStyle()} value={form.noticeHandling} onChange={e=>set("noticeHandling",e.target.value)}>
+                  <option value="">Select scope...</option>
+                  <option>Included in Monthly Fee</option>
+                  <option>Billed Hourly (Out of Scope)</option>
+                  <option>Client Handles Independently</option>
                 </select>
               </Field>
             </>}
@@ -766,7 +813,6 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
         <SearchableSelect options={teamMembers} value={form.leadStaff} onChange={v => set("leadStaff", v)} getLabel={m => m.name} />
       </Field>
 
-      {/* 🟢 RESTORED: Assigned Team Multi-Select */}
       <Field label="Assigned Team">
         {teamMembers.length === 0
           ? <div style={{ fontSize:12,color:T.text3,padding:"10px 12px", background:T.bg3,borderRadius:8,border:`1px solid ${T.border}` }}>
