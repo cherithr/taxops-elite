@@ -531,7 +531,6 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
               batch.update(taskDoc.ref, { status: form.status, updatedAt: new Date() });
             });
             await batch.commit();
-            alert(`✅ SUCCESS: Found ${projectTasks.length} linked tasks and moved them to ${form.status}!`);
           } else {
             alert(`⚠️ NOTICE: Project updated, but "${form.status}" is not a valid Task Board column.`);
           }
