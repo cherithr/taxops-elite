@@ -516,15 +516,17 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
     if (form.id) {
       await updateDocById(COLS.projects, form.id, data);
       try {
-        // 🟢 FIXED: Prove to Firebase that you own these tasks before updating them!
+        // 🟢 FIXED: Query by User ID to pass security, then filter by Project in memory to bypass the Firebase Index requirement!
         const qTasks = query(
           collection(db, COLS.tasks), 
-          where("userId", "==", auth.currentUser.uid),
-          where("project", "==", form.client)
+          where("userId", "==", auth.currentUser.uid)
         );
         const querySnap = await getDocs(qTasks);
         
-        if (!querySnap.empty) {
+        // Find tasks that belong to this specific project using standard JavaScript
+        const projectTasks = querySnap.docs.filter(doc => doc.data().project === form.client);
+        
+        if (projectTasks.length > 0) {
           const batch = writeBatch(db);
           const taskUpdates = {};
           
@@ -537,7 +539,7 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
 
           if (Object.keys(taskUpdates).length > 0) {
             taskUpdates.updatedAt = new Date();
-            querySnap.docs.forEach(taskDoc => {
+            projectTasks.forEach(taskDoc => {
               batch.update(taskDoc.ref, taskUpdates);
             });
             await batch.commit();
