@@ -515,41 +515,31 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
     
     if (form.id) {
       await updateDocById(COLS.projects, form.id, data);
+      
       try {
-        // 1. Fetch all tasks owned by this user
+        // 1. Get all your tasks
         const qTasks = query(collection(db, COLS.tasks), where("userId", "==", auth.currentUser.uid));
         const querySnap = await getDocs(qTasks);
         
-        // 2. Filter in memory to bypass Firebase index restrictions
+        // 2. Find tasks matching this exact project client name
         const projectTasks = querySnap.docs.filter(doc => doc.data().project === form.client);
         
         if (projectTasks.length > 0) {
-          const batch = writeBatch(db);
-          const taskUpdates = {};
-          
-          // 3. Only update the task status if it actually exists on the Kanban board
           if (TASK_COLS.includes(form.status)) {
-            taskUpdates.status = form.status;
-          }
-          if (form.due) {
-            taskUpdates.due = form.due;
-          }
-
-          if (Object.keys(taskUpdates).length > 0) {
-            taskUpdates.updatedAt = new Date();
+            const batch = writeBatch(db);
             projectTasks.forEach(taskDoc => {
-              batch.update(taskDoc.ref, taskUpdates);
+              batch.update(taskDoc.ref, { status: form.status, updatedAt: new Date() });
             });
             await batch.commit();
-            console.log(`✅ Success: Moved ${projectTasks.length} tasks!`);
+            alert(`✅ SUCCESS: Found ${projectTasks.length} linked tasks and moved them to ${form.status}!`);
           } else {
-            console.log("⚠️ Project updated, but status is not a valid Task Board column.");
+            alert(`⚠️ NOTICE: Project updated, but "${form.status}" is not a valid Task Board column.`);
           }
         } else {
-          console.log("⚠️ Project updated, but no matching tasks were found to move.");
+          alert(`👻 GHOST DATA: Project updated, but could not find any tasks linked to "${form.client}".`);
         }
       } catch (err) {
-        console.error("🔥 Failed to cascade changes to tasks:", err);
+        alert(`🔥 FIREBASE ERROR: ${err.message}`);
       }
     } else {
       await createDoc(COLS.projects, data);
@@ -593,9 +583,6 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
                 <option value="Physical - Office">Office</option>
                 <option value="Physical - Warehouse">Warehouse</option>
                 <option value="Physical - Inventory">Inventory</option>
-                <option value="Physical - Employees">Employees</option>
-                <option value="Physical - Property">Property</option>
-                <option value="Physical - Vehicles">Vehicles</option>
               </optgroup>
               <optgroup label="Economic Nexus">
                 <option value="Economic - Revenue Threshold">Revenue Threshold</option>
@@ -653,7 +640,6 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
                 fontSize: 9, fontWeight: 700, color: "#fff",
               }}>{(m.avatar || m.name?.slice(0,2) || "?").toUpperCase()}</span>
               <span>{m.name}</span>
-              {!compact && <span style={{ color: T.text3, marginLeft: 4 }}>— {m.role}</span>}
             </span>
           )} />
       </Field>
@@ -668,12 +654,12 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
           style={inputStyle({ height: 80, resize: "vertical" })} 
           value={form.notes || ""} 
           onChange={e=>set("notes", e.target.value)} 
-          placeholder="Add status updates, call notes, or phase details here..." 
         />
       </Field>
     </Modal>
   );
 };
+
 // ─── TASK MODAL ───────────────────────────────────────────────────────────────
 const TASK_DEFAULTS = { title:"", project:"", priority:"Medium", status:"Planning", due:"", assignee:"", hours:0, estimate:8 };
 const TaskModal = ({ initial, onClose, projects, teamMembers }) => {
