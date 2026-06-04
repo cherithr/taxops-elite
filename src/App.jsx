@@ -1146,9 +1146,11 @@ const Sidebar = ({ active, onNav, collapsed, onToggle, profile }) => (
           display:"flex",alignItems:"center",justifyContent:"center",
           fontSize:11,fontWeight:700 }}>{profile?.initials || "YA"}</div>
         {!collapsed && (
-          <div>
-            <div style={{ fontSize:12,fontWeight:600,color:T.text0 }}>{profile?.name || "Your Account"}</div>
+          <div style={{ overflow: "hidden" }}>
+            <div style={{ fontSize:12,fontWeight:600,color:T.text0, whiteSpace:"nowrap", textOverflow:"ellipsis", overflow:"hidden" }}>{profile?.name || "Your Account"}</div>
             <div style={{ fontSize:10,color:T.text3 }}>{profile?.role || "Senior Manager"}</div>
+            {/* 🟢 NEW: Gmail ID added here */}
+            <div style={{ fontSize:10,color:T.blue, opacity: 0.9, whiteSpace:"nowrap", textOverflow:"ellipsis", overflow:"hidden", marginTop:2 }}>{profile?.email}</div>
           </div>
         )}
       </div>
@@ -1180,6 +1182,8 @@ const NotifButton = ({ icon, tip, badge, onClick }) => {
 const TopBar = ({ onCommand, activeView, onSignOut, profile, onEditProfile }) => {
   const [hovered, setHovered] = useState(false);
   const [soHov, setSoHov] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false); // 🟢 NEW: Dropdown State
+
   const label = NAV_ITEMS.find(n=>n.id===activeView)?.label || "TaxOps Elite";
   return (
     <div style={{ height:52,background:T.bg1,borderBottom:`1px solid ${T.border}`,
@@ -1196,13 +1200,43 @@ const TopBar = ({ onCommand, activeView, onSignOut, profile, onEditProfile }) =>
         <kbd style={{ background:T.bg4,padding:"1px 5px",borderRadius:4,
           fontSize:10,border:`1px solid ${T.border}`,marginLeft:4 }}>⌘K</kbd>
       </button>
-      <div style={{ display:"flex",gap:6,alignItems:"center" }}>
-        <NotifButton icon="🔔" tip="Notifications" badge={5} />
+      <div style={{ display:"flex",gap:6,alignItems:"center", position: "relative" }}>
+        
+        {/* 🟢 NEW: Working Notification Button & Dropdown */}
+        <NotifButton icon="🔔" tip="Notifications" badge={2} onClick={() => setNotifOpen(!notifOpen)} />
+        
+        {notifOpen && (
+          <div className="fadeUp" style={{
+            position: "absolute", top: "calc(100% + 12px)", right: 80, width: 300,
+            background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 12,
+            boxShadow: "0 16px 40px rgba(0,0,0,0.5)", zIndex: 9999, overflow: "hidden"
+          }}>
+            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: T.text0 }}>Notifications</span>
+              <button className="btn-ghost" style={{ fontSize: 10, padding: "2px 6px", border: "none" }} onClick={() => setNotifOpen(false)}>✕</button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <div style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, cursor: "pointer", transition: "background 0.2s" }} onMouseEnter={e=>e.currentTarget.style.background=T.bg3} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <div style={{ fontSize: 12, color: T.text0, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ color: T.emerald }}>●</span> <strong>Multi-Tenant Secure</strong>
+                </div>
+                <div style={{ fontSize: 11, color: T.text3, lineHeight: 1.4 }}>Your data is now locked in a private cloud vault securely tied to your email.</div>
+              </div>
+              <div style={{ padding: "14px 16px", cursor: "pointer", transition: "background 0.2s" }} onMouseEnter={e=>e.currentTarget.style.background=T.bg3} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <div style={{ fontSize: 12, color: T.text0, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ color: T.blue }}>●</span> <strong>Kanban Synced</strong>
+                </div>
+                <div style={{ fontSize: 11, color: T.text3, lineHeight: 1.4 }}>The Task Board is now fully automated and synced directly to your Projects tab.</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <NotifButton icon="⚙" tip="Settings" onClick={onEditProfile} />
         <div onClick={onEditProfile} style={{ width:34,height:34,borderRadius:"50%",
           background:`linear-gradient(135deg,${T.violet},${T.blue})`,
           display:"flex",alignItems:"center",justifyContent:"center",
-          fontSize:12,fontWeight:700,cursor:"pointer" }}>{profile.initials}</div>
+          fontSize:12,fontWeight:700,cursor:"pointer" }}>{profile?.initials || "YA"}</div>
         <button
           onClick={onSignOut}
           onMouseEnter={()=>setSoHov(true)}
@@ -2293,7 +2327,6 @@ const ProfileModal = ({ initial, onClose, onSave }) => {
 
   const save = () => {
     if (!form.name.trim()) return;
-    // Auto-generate initials from the new name (e.g., "John Doe" -> "JD")
     const initials = form.name.split(" ").map(w => w[0] || "").join("").toUpperCase().slice(0, 2);
     onSave({ ...form, initials });
     onClose();
@@ -2311,6 +2344,10 @@ const ProfileModal = ({ initial, onClose, onSave }) => {
           </select>
         </Field>
       </div>
+      {/* 🟢 NEW: Read-only Google Email field */}
+      <Field label="Google Account Email">
+        <input style={inputStyle({ opacity: 0.5, cursor: "not-allowed" })} value={form.email || ""} disabled placeholder="Fetched securely from Google Auth" />
+      </Field>
     </Modal>
   );
 };
@@ -2375,15 +2412,14 @@ export default function App() {
       setAuthChecked(true);
       if (!user) { setSeeded(false); return; }
 
-      // 🟢 NEW: Fetch or Create Cloud Profile securely using your user ID
+      // 🟢 NEW: Fetch Cloud Profile AND inject the secure Google Email
       try {
         const userRef = doc(db, "users", user.uid);
         const snap = await getDoc(userRef);
         if (snap.exists()) {
-          setUserProfile(snap.data());
+          setUserProfile({ ...snap.data(), email: user.email }); // ← Email added here!
         } else {
-          // If this is a brand new account, create a default cloud profile
-          const defaultProfile = { name: "Your Account", role: "Senior Manager", initials: "YA" };
+          const defaultProfile = { name: "Your Account", role: "Senior Manager", initials: "YA", email: user.email };
           await setDoc(userRef, defaultProfile);
           setUserProfile(defaultProfile);
         }
@@ -2391,17 +2427,7 @@ export default function App() {
         console.error("Cloud profile error:", err);
       }
 
-      (async () => {
-        try {
-          await Promise.all([
-            seedCollection(COLS.projects, SEED_PROJECTS),
-          ]);
-        } catch (error) {
-          console.error("🔥 Failed to seed Firebase data:", error);
-        } finally {
-          setSeeded(true); 
-        }
-      })();
+      setSeeded(true);
     });
     return () => unsubAuth();
   }, []);
