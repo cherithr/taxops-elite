@@ -516,20 +516,18 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
     if (form.id) {
       await updateDocById(COLS.projects, form.id, data);
       try {
-        // 🟢 FIXED: Query by User ID to pass security, then filter by Project in memory to bypass the Firebase Index requirement!
-        const qTasks = query(
-          collection(db, COLS.tasks), 
-          where("userId", "==", auth.currentUser.uid)
-        );
+        // 1. Fetch all tasks owned by this user
+        const qTasks = query(collection(db, COLS.tasks), where("userId", "==", auth.currentUser.uid));
         const querySnap = await getDocs(qTasks);
         
-        // Find tasks that belong to this specific project using standard JavaScript
+        // 2. Filter in memory to bypass Firebase index restrictions
         const projectTasks = querySnap.docs.filter(doc => doc.data().project === form.client);
         
         if (projectTasks.length > 0) {
           const batch = writeBatch(db);
           const taskUpdates = {};
           
+          // 3. Only update the task status if it actually exists on the Kanban board
           if (TASK_COLS.includes(form.status)) {
             taskUpdates.status = form.status;
           }
@@ -543,10 +541,15 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
               batch.update(taskDoc.ref, taskUpdates);
             });
             await batch.commit();
+            console.log(`✅ Success: Moved ${projectTasks.length} tasks!`);
+          } else {
+            console.log("⚠️ Project updated, but status is not a valid Task Board column.");
           }
+        } else {
+          console.log("⚠️ Project updated, but no matching tasks were found to move.");
         }
       } catch (err) {
-        console.error("Failed to cascade changes to individual tasks:", err);
+        console.error("🔥 Failed to cascade changes to tasks:", err);
       }
     } else {
       await createDoc(COLS.projects, data);
@@ -597,22 +600,6 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
               <optgroup label="Economic Nexus">
                 <option value="Economic - Revenue Threshold">Revenue Threshold</option>
                 <option value="Economic - Transaction Threshold">Transaction Threshold</option>
-              </optgroup>
-              <optgroup label="Attributional Nexus">
-                <option value="Attributional - Affiliate">Affiliate</option>
-                <option value="Attributional - Click-Through">Click-Through</option>
-                <option value="Attributional - Agency">Agency</option>
-              </optgroup>
-              <optgroup label="Operational Nexus">
-                <option value="Operational - Services">Services</option>
-                <option value="Operational - Installation">Installation</option>
-                <option value="Operational - Repair">Repair</option>
-                <option value="Operational - Training">Training</option>
-              </optgroup>
-              <optgroup label="Intangible Nexus">
-                <option value="Intangible - Royalties">Royalties</option>
-                <option value="Intangible - Licensing">Licensing</option>
-                <option value="Intangible - Intellectual Property">Intellectual Property</option>
               </optgroup>
             </select>
           </Field>
@@ -669,27 +656,6 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
               {!compact && <span style={{ color: T.text3, marginLeft: 4 }}>— {m.role}</span>}
             </span>
           )} />
-      </Field>
-
-      <Field label="Assigned Team">
-        {teamMembers.length === 0
-          ? <div style={{ fontSize:12,color:T.text3,padding:"10px 12px", background:T.bg3,borderRadius:8,border:`1px solid ${T.border}` }}>
-              No team members yet — add staff first under Team &amp; Workload
-            </div>
-          : <SearchableMultiSelect
-              options={teamMembers}
-              value={form.assignedTeam}
-              onChange={v => set("assignedTeam", v)}
-              placeholder="Search and select team members…"
-              getLabel={m => m.name}
-              renderOption={(m) => (
-                <span style={{ display:"flex",alignItems:"center",gap:8 }}>
-                  <span style={{ width:22,height:22,borderRadius:"50%",flexShrink:0, background:m.color||T.blue, display:"inline-flex",alignItems:"center",justifyContent:"center", fontSize:9,fontWeight:700,color:"#fff" }}>{(m.avatar||m.name?.slice(0,2)||"?").toUpperCase()}</span>
-                  <span>{m.name}</span>
-                  <span style={{ color:T.text3,marginLeft:2 }}>— {m.role}</span>
-                </span>
-              )} />
-        }
       </Field>
 
       <Field label="States (comma-separated)">
