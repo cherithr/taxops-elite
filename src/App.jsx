@@ -2423,17 +2423,19 @@ export default function App() {
   }, []);
 
   useEffect(()=>{
-    if(!seeded) return;
+    // 🟢 NEW: Only subscribe if the database is seeded AND we have a logged-in user
+    if(!seeded || !authUser) return; 
+
     const unsubs = [
-      subscribe(COLS.projects, setProjects),
-      subscribe(COLS.tasks, setTasks),
-      subscribe(COLS.team, setTeam),
-      subscribe(COLS.states, setStates),
-      subscribe(COLS.audits, setAudits),
-      subscribe(COLS.refunds, setRefunds),
+      subscribe(COLS.projects, authUser.uid, setProjects),
+      subscribe(COLS.tasks, authUser.uid, setTasks),
+      subscribe(COLS.team, authUser.uid, setTeam),
+      subscribe(COLS.states, authUser.uid, setStates),
+      subscribe(COLS.audits, authUser.uid, setAudits),
+      subscribe(COLS.refunds, authUser.uid, setRefunds),
     ];
     return ()=>unsubs.forEach(u=>u());
-  },[seeded]);
+  },[seeded, authUser]); // Added authUser as a dependency
 
   const navigate = useCallback((view)=>{ setActiveView(view); setCmdOpen(false); },[]);
   useEffect(()=>{
