@@ -766,6 +766,30 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
         <SearchableSelect options={teamMembers} value={form.leadStaff} onChange={v => set("leadStaff", v)} getLabel={m => m.name} />
       </Field>
 
+      {/* 🟢 RESTORED: Assigned Team Multi-Select */}
+      <Field label="Assigned Team">
+        {teamMembers.length === 0
+          ? <div style={{ fontSize:12,color:T.text3,padding:"10px 12px", background:T.bg3,borderRadius:8,border:`1px solid ${T.border}` }}>
+              No team members yet — add staff first under Team &amp; Workload
+            </div>
+          : <SearchableMultiSelect
+              options={teamMembers}
+              value={form.assignedTeam}
+              onChange={v => set("assignedTeam", v)}
+              placeholder="Search and select team members…"
+              getLabel={m => m.name}
+              renderOption={(m) => (
+                <span style={{ display:"flex",alignItems:"center",gap:8 }}>
+                  <span style={{ width:22,height:22,borderRadius:"50%",flexShrink:0, background:m.color||T.blue, display:"inline-flex",alignItems:"center",justifyContent:"center", fontSize:9,fontWeight:700,color:"#fff" }}>
+                    {(m.avatar||m.name?.slice(0,2)||"?").toUpperCase()}
+                  </span>
+                  <span>{m.name}</span>
+                  <span style={{ color:T.text3,marginLeft:2 }}>— {m.role}</span>
+                </span>
+              )} />
+        }
+      </Field>
+
       <Field label="Notes / Comments">
         <textarea style={inputStyle({ height: 60, resize: "vertical" })} value={form.notes || ""} onChange={e=>set("notes", e.target.value)} />
       </Field>
