@@ -486,7 +486,12 @@ const PROJECT_DEFAULTS = {
   client:"", engagement:"", type:"Reverse Audit", tax:"Sales & Use Tax",
   states:[], exposure:0, refund:0, risk:"Medium", priority:"Medium",
   status:"Planning", health:50, nexus:"TBD",
-  leadStaff:"", assignedTeam:[], due:"", tasks:0, open:0, billingType:"Fixed Fee", period:"", notes:"",
+  leadStaff:"", assignedTeam:[], 
+  
+  // 🟢 NEW: Added Start and End dates (we keep 'due' for legacy board compatibility)
+  startDate:"", endDate:"", due:"", followUpDate:"", 
+  
+  tasks:0, open:0, billingType:"Fixed Fee", period:"", notes:"",
   
   // Dynamic SUT Fields (Cleaned up)
   apSpend: "", samplingMethod: "", auditorName: "", missingCerts: "", assessmentStage: "", 
@@ -531,6 +536,13 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
       exposure: showExposure ? (Number(form.exposure) || 0) : 0,
       refund: showRefund ? (Number(form.refund) || 0) : 0,
       health: Number(form.health)||50,
+      
+      // 🟢 Add this right next to your startDate and endDate
+      startDate: form.startDate,
+      endDate: form.endDate,
+      due: form.endDate || form.due,
+      followUpDate: form.followUpDate, 
+      
       states: typeof form.states==="string" ? form.states.split(",").map(s=>s.trim()).filter(Boolean) : form.states,
       assignedTeam: form.assignedTeam,
       
@@ -799,9 +811,37 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
         <Field label="Health (0–100)">
           <input style={inputStyle()} type="number" min="0" max="100" value={form.health} onChange={e=>set("health",e.target.value)} />
         </Field>
-        <Field label="Due Date">
-          <input style={inputStyle()} type="date" value={form.due} onChange={e=>set("due",e.target.value)} />
-        </Field>
+        
+        {/* 🟢 UPGRADED: Auto-Calculating Dates */}
+        <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+          <Field label="Start Date">
+            <input 
+              style={inputStyle()} 
+              type="date" 
+              value={form.startDate} 
+              onChange={e => {
+                const newStart = e.target.value;
+                let nextFollowUp = form.followUpDate;
+                
+                // Automatically set the follow-up date exactly 1 year in the future!
+                if (newStart) {
+                  const dateObj = new Date(newStart);
+                  dateObj.setFullYear(dateObj.getFullYear() + 1);
+                  nextFollowUp = dateObj.toISOString().split("T")[0];
+                }
+                
+                // Update both fields at the same time
+                setForm(p => ({ ...p, startDate: newStart, followUpDate: nextFollowUp }));
+              }} 
+            />
+          </Field>
+          <Field label="End Date (Deadline)">
+            <input style={inputStyle()} type="date" value={form.endDate} onChange={e=>set("endDate",e.target.value)} />
+          </Field>
+          <Field label="Next Year Follow-Up">
+            <input style={inputStyle({ borderColor: T.emerald })} type="date" value={form.followUpDate} onChange={e=>set("followUpDate",e.target.value)} />
+          </Field>
+        </div>
       </div>
 
       <Field label="States (comma-separated)">
@@ -1392,6 +1432,16 @@ const DashboardView = ({ onNavigate, projects, audits, team }) => {
   const overdueAudits = useMemo(()=>audits.filter(a=>{ const d=daysLeft(a.deadline); return d!==null&&d<10; }).length,[audits]);
   const urgentAudit = audits.find(a=>{ const d=daysLeft(a.deadline); return d!==null&&d<10; });
   const overloadedMember = team.find(m=>(m.utilization||0)>90);
+  
+  // 🟢 NEW: Find projects that have a follow-up date within the next 60 days
+  const upcomingRenewals = useMemo(() => {
+    return projects.filter(p => {
+      if (!p.followUpDate) return false;
+      const d = daysLeft(p.followUpDate);
+      return d !== null && d <= 60 && p.status !== "Closed"; 
+    }).sort((a, b) => new Date(a.followUpDate) - new Date(b.followUpDate));
+  }, [projects]);
+
   return (
     <div style={{ padding:"28px 32px",overflowY:"auto",height:"100%",
       display:"flex",flexDirection:"column",gap:28 }}>
