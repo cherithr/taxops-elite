@@ -516,7 +516,12 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
     if (form.id) {
       await updateDocById(COLS.projects, form.id, data);
       try {
-        const qTasks = query(collection(db, COLS.tasks), where("project", "==", form.client));
+        // 🟢 FIXED: Prove to Firebase that you own these tasks before updating them!
+        const qTasks = query(
+          collection(db, COLS.tasks), 
+          where("userId", "==", auth.currentUser.uid),
+          where("project", "==", form.client)
+        );
         const querySnap = await getDocs(qTasks);
         
         if (!querySnap.empty) {
