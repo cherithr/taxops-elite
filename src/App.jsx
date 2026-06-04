@@ -46,7 +46,7 @@ const PROJECT_TYPES = [
 const TAX_TYPES = [
   "Sales & Use Tax","Severance Tax","Excise Tax","Property Tax",
   "Payroll Tax","Corporate Income Tax","Franchise Tax",
-  "Gross Receipts Tax","Cannabis Tax","Other",
+  "Gross Receipts Tax","Hotel Occupancy Tax","Other",
 ];
 const PROJECT_STATUSES = [
   "Planning","In Progress","Review Phase","Waiting for Client",
