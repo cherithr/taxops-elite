@@ -486,10 +486,13 @@ const PROJECT_DEFAULTS = {
   client:"", engagement:"", type:"Reverse Audit", tax:"Sales & Use Tax",
   states:[], exposure:0, refund:0, risk:"Medium", priority:"Medium",
   status:"Planning", health:50, nexus:"TBD",
-  leadStaff:"",
-  assignedTeam:[],
-  due:"",
-  tasks:0, open:0, billingType:"Fixed Fee", period:"", notes:""
+  leadStaff:"", assignedTeam:[], due:"", tasks:0, open:0, billingType:"Fixed Fee", period:"", notes:"",
+  
+  // Dynamic SUT Fields
+  apSpend: "", samplingMethod: "", auditorName: "", missingCerts: "", assessmentStage: "", 
+  t12Revenue: "", transactionVolume: "", lookbackPeriod: "", penaltyTarget: "", 
+  targetProducts: "", deliverableType: "", avgMonthlyLiability: "", filingFrequency: "", 
+  targetCompany: "", materialityThreshold: ""
 };
 
 const ProjectModal = ({ initial, onClose, teamMembers }) => {
@@ -501,73 +504,67 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
   const [saving, setSaving] = useState(false);
   const set = (k,v) => setForm(p=>({...p,[k]:v}));
 
+  // ─── THE PREMIUM DYNAMIC LOGIC MATRIX ───
+  const isSUT = form.tax === "Sales & Use Tax";
+  
+  const isRevAudit = form.type === "Reverse Audit" || form.type === "Refund Review";
+  const isAuditDef = form.type === "Audit Defense";
+  const isNexus    = form.type === "Nexus Study";
+  const isVDA      = form.type === "VDA / Voluntary Disclosure";
+  const isTaxPlan  = form.type === "Taxability Research" || form.type === "Tax Planning";
+  const isCompRev  = form.type === "Compliance Review";
+  const isDueDil   = form.type === "Due Diligence";
+
+  // Base Financial Triggers
+  const showRefund   = isRevAudit || form.type === "Other";
+  const showExposure = isAuditDef || isNexus || isVDA || isDueDil || isCompRev || form.type === "Other";
+
   const save = async () => {
     if (!form.client.trim()) return;
     setSaving(true);
+    
+    // 🛡 DATA SANITATION: Only save dynamic fields if their specific condition is currently active.
+    // This prevents database pollution if a user changes the project type mid-entry.
     const data = { ...form,
-      exposure: Number(form.exposure)||0,
-      refund: Number(form.refund)||0,
+      exposure: showExposure ? (Number(form.exposure) || 0) : 0,
+      refund: showRefund ? (Number(form.refund) || 0) : 0,
       health: Number(form.health)||50,
-      states: typeof form.states==="string"
-        ? form.states.split(",").map(s=>s.trim()).filter(Boolean) : form.states,
+      states: typeof form.states==="string" ? form.states.split(",").map(s=>s.trim()).filter(Boolean) : form.states,
       assignedTeam: form.assignedTeam,
+      
+      nexus: isNexus ? form.nexus : "TBD",
+      apSpend: (isSUT && isRevAudit) ? form.apSpend : "",
+      samplingMethod: (isSUT && isRevAudit) ? form.samplingMethod : "",
+      auditorName: (isSUT && isAuditDef) ? form.auditorName : "",
+      missingCerts: (isSUT && isAuditDef) ? Number(form.missingCerts)||0 : "",
+      assessmentStage: (isSUT && isAuditDef) ? form.assessmentStage : "",
+      t12Revenue: (isSUT && isNexus) ? Number(form.t12Revenue)||0 : "",
+      transactionVolume: (isSUT && isNexus) ? Number(form.transactionVolume)||0 : "",
+      lookbackPeriod: (isSUT && isVDA) ? form.lookbackPeriod : "",
+      penaltyTarget: (isSUT && isVDA) ? Number(form.penaltyTarget)||0 : "",
+      targetProducts: (isSUT && isTaxPlan) ? form.targetProducts : "",
+      deliverableType: (isSUT && isTaxPlan) ? form.deliverableType : "",
+      avgMonthlyLiability: (isSUT && isCompRev) ? Number(form.avgMonthlyLiability)||0 : "",
+      filingFrequency: (isSUT && isCompRev) ? form.filingFrequency : "",
+      targetCompany: (isSUT && isDueDil) ? form.targetCompany : "",
+      materialityThreshold: (isSUT && isDueDil) ? Number(form.materialityThreshold)||0 : "",
     };
     
     if (form.id) {
-      // ─── UPDATING AN EXISTING PROJECT ───
       await updateDocById(COLS.projects, form.id, data);
       try {
-        // Query tasks by User ID to pass security, then filter by Project in memory to bypass index requirements
         const qTasks = query(collection(db, COLS.tasks), where("userId", "==", auth.currentUser.uid));
         const querySnap = await getDocs(qTasks);
         const projectTasks = querySnap.docs.filter(doc => doc.data().project === form.client);
         
         if (projectTasks.length > 0 && TASK_COLS.includes(form.status)) {
           const batch = writeBatch(db);
-          projectTasks.forEach(taskDoc => {
-            batch.update(taskDoc.ref, { 
-              status: form.status, 
-              due: form.due || taskDoc.data().due, 
-              updatedAt: new Date() 
-            });
-          });
+          projectTasks.forEach(taskDoc => { batch.update(taskDoc.ref, { status: form.status, due: form.due || taskDoc.data().due, updatedAt: new Date() }); });
           await batch.commit();
         }
-      } catch (err) {
-        console.error("Failed to cascade changes to tasks:", err);
-      }
+      } catch (err) { console.error("Cascade fail:", err); }
     } else {
-      // ─── CREATING A NEW PROJECT (WITH AUTO-TASKS!) ───
-      try {
-        await createDoc(COLS.projects, data);
-        
-        // Automatically generate default tasks for the Kanban board
-        const batch = writeBatch(db);
-        const defaultTasks = [
-          { title: "Phase 1: Project Kickoff & Planning", estimate: 2 },
-          { title: "Phase 2: Document Request (IDR) & Review", estimate: 8 },
-          { title: "Phase 3: Client Status Update", estimate: 1 }
-        ];
-
-        defaultTasks.forEach(t => {
-          const taskRef = doc(collection(db, COLS.tasks)); 
-          batch.set(taskRef, {
-            ...t,
-            project: form.client,            // Auto-linked to the new client
-            status: form.status || "Planning", 
-            priority: form.priority || "Medium",
-            due: form.due || "",
-            assignee: form.leadStaff || "",  // Auto-assigned to the Lead Staff
-            hours: 0,
-            userId: auth.currentUser.uid,    // Securely locked to this user
-            createdAt: new Date()
-          });
-        });
-        
-        await batch.commit();
-      } catch (err) {
-        console.error("Creation error:", err);
-      }
+      await createDoc(COLS.projects, data);
     }
     setSaving(false);
     onClose();
@@ -575,6 +572,8 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
 
   return (
     <Modal title={form.id?"Edit Project":"New Project"} onClose={onClose} onSave={save} saving={saving}>
+      
+      {/* ─── BASE PROJECT INFO ─── */}
       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
         <Field label="Client Name">
           <input style={inputStyle()} value={form.client} onChange={e=>set("client",e.target.value)} placeholder="e.g. Acme Corp" disabled={!!form.id} />
@@ -585,68 +584,167 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
           </select>
         </Field>
       </div>
+      
       <Field label="Engagement Name">
-        <input style={inputStyle()} value={form.engagement} onChange={e=>set("engagement",e.target.value)} placeholder="e.g. TX Audit Defense 2023" />
+        <input style={inputStyle()} value={form.engagement} onChange={e=>set("engagement",e.target.value)} placeholder="e.g. SUT Audit Defense 2023" />
       </Field>
+      
       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
         <Field label="Project Type">
-          <select style={inputStyle()} value={form.type} onChange={e=>set("type",e.target.value)}>
+          <select style={inputStyle({ border:`1px solid ${T.blue}66` })} value={form.type} onChange={e=>set("type",e.target.value)}>
             {PROJECT_TYPES.map(o=><option key={o}>{o}</option>)}
           </select>
         </Field>
         <Field label="Tax Type">
-          <select style={inputStyle()} value={form.tax} onChange={e=>set("tax",e.target.value)}>
+          <select style={inputStyle({ border:`1px solid ${T.blue}66` })} value={form.tax} onChange={e=>set("tax",e.target.value)}>
             {TAX_TYPES.map(o=><option key={o}>{o}</option>)}
           </select>
         </Field>
         
-        {form.type === "Nexus Study" && (
-          <Field label="Nexus Focus">
-            <select style={inputStyle({ borderColor: T.violet })} value={form.nexus || "TBD"} onChange={e=>set("nexus",e.target.value)}>
-              <option value="TBD">Select trigger or TBD...</option>
-              <optgroup label="Physical Nexus">
-                <option value="Physical - Office">Office</option>
-                <option value="Physical - Warehouse">Warehouse</option>
-                <option value="Physical - Inventory">Inventory</option>
-                <option value="Physical - Employees">Employees</option>
-                <option value="Physical - Property">Property</option>
-                <option value="Physical - Vehicles">Vehicles</option>
-              </optgroup>
-              <optgroup label="Economic Nexus">
-                <option value="Economic - Revenue Threshold">Revenue Threshold</option>
-                <option value="Economic - Transaction Threshold">Transaction Threshold</option>
-              </optgroup>
-              <optgroup label="Attributional Nexus">
-                <option value="Attributional - Affiliate">Affiliate</option>
-                <option value="Attributional - Click-Through">Click-Through</option>
-                <option value="Attributional - Agency">Agency</option>
-              </optgroup>
-              <optgroup label="Operational Nexus">
-                <option value="Operational - Services">Services</option>
-                <option value="Operational - Installation">Installation</option>
-                <option value="Operational - Repair">Repair</option>
-                <option value="Operational - Training">Training</option>
-              </optgroup>
-              <optgroup label="Intangible Nexus">
-                <option value="Intangible - Royalties">Royalties</option>
-                <option value="Intangible - Licensing">Licensing</option>
-                <option value="Intangible - Intellectual Property">Intellectual Property</option>
-              </optgroup>
-            </select>
+        {/* Core Financial Fields */}
+        {showExposure && (
+          <Field label={isVDA ? "Estimated Tax Due ($)" : isDueDil ? "Identified Exposure ($)" : "Exposure Risk ($)"}>
+            <input style={inputStyle()} type="number" value={form.exposure} onChange={e=>set("exposure",e.target.value)} />
           </Field>
         )}
-        
-        <Field label="Risk">
+        {showRefund && (
+          <Field label="Estimated Refund ($)">
+            <input style={inputStyle()} type="number" value={form.refund} onChange={e=>set("refund",e.target.value)} />
+          </Field>
+        )}
+      </div>
+
+      {/* ─── DYNAMIC SUT PARAMETER BLOCK ─── */}
+      {isSUT && (isRevAudit || isAuditDef || isNexus || isVDA || isTaxPlan || isCompRev || isDueDil) && (
+        <div style={{ background:`${T.bg3}66`, border:`1px solid ${T.border}`, borderRadius:10, padding:"16px", marginTop:8, marginBottom:8 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:T.blue, letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:14, display:"flex", alignItems:"center", gap:8 }}>
+            <span>⬡</span> {form.type} Parameters
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+            
+            {/* Reverse Audit Specifics */}
+            {isRevAudit && <>
+              <Field label="AP Spend in Scope ($)">
+                <input style={inputStyle()} type="number" value={form.apSpend} onChange={e=>set("apSpend",e.target.value)} />
+              </Field>
+              <Field label="Sampling Method">
+                <select style={inputStyle()} value={form.samplingMethod} onChange={e=>set("samplingMethod",e.target.value)}>
+                  <option value="">Select method...</option>
+                  <option>Block / Time Period</option>
+                  <option>Statistical Sampling</option>
+                  <option>Actual Invoices (100%)</option>
+                </select>
+              </Field>
+            </>}
+
+            {/* Audit Defense Specifics */}
+            {isAuditDef && <>
+              <Field label="Auditor Name / Contact">
+                <input style={inputStyle()} value={form.auditorName} onChange={e=>set("auditorName",e.target.value)} placeholder="e.g. Smith, John (TX Dept Rev)" />
+              </Field>
+              <Field label="Assessment Stage">
+                <select style={inputStyle()} value={form.assessmentStage} onChange={e=>set("assessmentStage",e.target.value)}>
+                  <option value="">Select stage...</option>
+                  <option>Initial IDR Phase</option>
+                  <option>Proposed Assessment</option>
+                  <option>Final Assessment</option>
+                  <option>Appeals / Hearings</option>
+                </select>
+              </Field>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <Field label="Missing Exemption Certs (Count)">
+                  <input style={inputStyle()} type="number" value={form.missingCerts} onChange={e=>set("missingCerts",e.target.value)} placeholder="0" />
+                </Field>
+              </div>
+            </>}
+
+            {/* Nexus Specifics */}
+            {isNexus && <>
+              <Field label="Nexus Focus">
+                <select style={inputStyle()} value={form.nexus || "TBD"} onChange={e=>set("nexus",e.target.value)}>
+                  <option value="TBD">Select trigger...</option>
+                  <optgroup label="Physical Nexus"><option value="Physical - Office">Office</option><option value="Physical - Inventory">Inventory</option><option value="Physical - Employees">Employees</option></optgroup>
+                  <optgroup label="Economic Nexus"><option value="Economic - Revenue Threshold">Revenue Threshold</option><option value="Economic - Transaction Threshold">Transaction Threshold</option></optgroup>
+                </select>
+              </Field>
+              <Field label="T-12 Month Revenue ($)">
+                <input style={inputStyle()} type="number" value={form.t12Revenue} onChange={e=>set("t12Revenue",e.target.value)} />
+              </Field>
+              <Field label="Annual Transaction Vol.">
+                <input style={inputStyle()} type="number" value={form.transactionVolume} onChange={e=>set("transactionVolume",e.target.value)} />
+              </Field>
+            </>}
+
+            {/* VDA Specifics */}
+            {isVDA && <>
+              <Field label="Lookback Period">
+                <select style={inputStyle()} value={form.lookbackPeriod} onChange={e=>set("lookbackPeriod",e.target.value)}>
+                  <option value="">Select period...</option>
+                  <option>3 Years</option>
+                  <option>4 Years</option>
+                  <option>7 Years</option>
+                  <option>Unlimited</option>
+                </select>
+              </Field>
+              <Field label="Penalty Abatement Target ($)">
+                <input style={inputStyle()} type="number" value={form.penaltyTarget} onChange={e=>set("penaltyTarget",e.target.value)} />
+              </Field>
+            </>}
+
+            {/* Tax Planning Specifics */}
+            {isTaxPlan && <>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <Field label="Target Products / Services">
+                  <input style={inputStyle()} value={form.targetProducts} onChange={e=>set("targetProducts",e.target.value)} placeholder="e.g. SaaS, Downloadable Software, Hosting" />
+                </Field>
+              </div>
+              <Field label="Deliverable Type">
+                <select style={inputStyle()} value={form.deliverableType} onChange={e=>set("deliverableType",e.target.value)}>
+                  <option value="">Select type...</option>
+                  <option>Official Taxability Matrix</option>
+                  <option>Internal Research Memo</option>
+                  <option>Client Advisory Letter</option>
+                </select>
+              </Field>
+            </>}
+
+            {/* Compliance Review Specifics */}
+            {isCompRev && <>
+              <Field label="Avg Monthly Liability ($)">
+                <input style={inputStyle()} type="number" value={form.avgMonthlyLiability} onChange={e=>set("avgMonthlyLiability",e.target.value)} />
+              </Field>
+              <Field label="Filing Frequency">
+                <select style={inputStyle()} value={form.filingFrequency} onChange={e=>set("filingFrequency",e.target.value)}>
+                  <option value="">Select frequency...</option>
+                  <option>Monthly</option>
+                  <option>Quarterly</option>
+                  <option>Annually</option>
+                  <option>Prepay / Accelerated</option>
+                </select>
+              </Field>
+            </>}
+
+            {/* Due Diligence Specifics */}
+            {isDueDil && <>
+              <Field label="Target Company Name">
+                <input style={inputStyle()} value={form.targetCompany} onChange={e=>set("targetCompany",e.target.value)} placeholder="Entity being acquired..." />
+              </Field>
+              <Field label="Materiality Threshold ($)">
+                <input style={inputStyle()} type="number" value={form.materialityThreshold} onChange={e=>set("materialityThreshold",e.target.value)} />
+              </Field>
+            </>}
+          </div>
+        </div>
+      )}
+
+      {/* ─── WORKFLOW & STATUS ─── */}
+      <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
+        <Field label="Risk Level">
           <select style={inputStyle()} value={form.risk} onChange={e=>set("risk",e.target.value)}>
             {["Critical","High","Medium","Low"].map(o=><option key={o}>{o}</option>)}
           </select>
         </Field>
-        <Field label="Priority">
-          <select style={inputStyle()} value={form.priority} onChange={e=>set("priority",e.target.value)}>
-            {["Critical","High","Medium","Low"].map(o=><option key={o}>{o}</option>)}
-          </select>
-        </Field>
-        <Field label="Status (Cascades to Kanban Board)">
+        <Field label="Status (Kanban Lane)">
           <select style={inputStyle({ border:`1px solid ${T.blue}88` })} value={form.status} onChange={e=>set("status",e.target.value)}>
             {PROJECT_STATUSES.map(o=><option key={o}>{o}</option>)}
           </select>
@@ -654,74 +752,22 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
         <Field label="Health (0–100)">
           <input style={inputStyle()} type="number" min="0" max="100" value={form.health} onChange={e=>set("health",e.target.value)} />
         </Field>
-        <Field label="Exposure ($)">
-          <input style={inputStyle()} type="number" value={form.exposure} onChange={e=>set("exposure",e.target.value)} />
-        </Field>
-        <Field label="Refund ($)">
-          <input style={inputStyle()} type="number" value={form.refund} onChange={e=>set("refund",e.target.value)} />
-        </Field>
         <Field label="Due Date">
           <input style={inputStyle()} type="date" value={form.due} onChange={e=>set("due",e.target.value)} />
         </Field>
-        <Field label="Period">
-          <input style={inputStyle()} value={form.period} onChange={e=>set("period",e.target.value)} placeholder="e.g. 2021-2023" />
-        </Field>
       </div>
-
-      <Field label="Lead Staff">
-        <SearchableSelect
-          options={teamMembers}
-          value={form.leadStaff}
-          onChange={v => set("leadStaff", v)}
-          placeholder="Search team member…"
-          getLabel={m => m.name}
-          renderOption={(m, compact) => (
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{
-                width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
-                background: `linear-gradient(135deg,${m.color||T.blue},${m.color||T.blue}88)`,
-                display: "inline-flex", alignItems: "center", justifyContent: "center",
-                fontSize: 9, fontWeight: 700, color: "#fff",
-              }}>{(m.avatar || m.name?.slice(0,2) || "?").toUpperCase()}</span>
-              <span>{m.name}</span>
-              {!compact && <span style={{ color: T.text3, marginLeft: 4 }}>— {m.role}</span>}
-            </span>
-          )} />
-      </Field>
-
-      <Field label="Assigned Team">
-        {teamMembers.length === 0
-          ? <div style={{ fontSize:12,color:T.text3,padding:"10px 12px", background:T.bg3,borderRadius:8,border:`1px solid ${T.border}` }}>
-              No team members yet — add staff first under Team &amp; Workload
-            </div>
-          : <SearchableMultiSelect
-              options={teamMembers}
-              value={form.assignedTeam}
-              onChange={v => set("assignedTeam", v)}
-              placeholder="Search and select team members…"
-              getLabel={m => m.name}
-              renderOption={(m) => (
-                <span style={{ display:"flex",alignItems:"center",gap:8 }}>
-                  <span style={{ width:22,height:22,borderRadius:"50%",flexShrink:0, background:m.color||T.blue, display:"inline-flex",alignItems:"center",justifyContent:"center", fontSize:9,fontWeight:700,color:"#fff" }}>{(m.avatar||m.name?.slice(0,2)||"?").toUpperCase()}</span>
-                  <span>{m.name}</span>
-                  <span style={{ color:T.text3,marginLeft:2 }}>— {m.role}</span>
-                </span>
-              )} />
-        }
-      </Field>
 
       <Field label="States (comma-separated)">
         <input style={inputStyle()} value={Array.isArray(form.states)?form.states.join(", "):form.states}
           onChange={e=>set("states",e.target.value)} placeholder="TX, CA, NY" />
       </Field>
 
+      <Field label="Lead Staff">
+        <SearchableSelect options={teamMembers} value={form.leadStaff} onChange={v => set("leadStaff", v)} getLabel={m => m.name} />
+      </Field>
+
       <Field label="Notes / Comments">
-        <textarea 
-          style={inputStyle({ height: 80, resize: "vertical" })} 
-          value={form.notes || ""} 
-          onChange={e=>set("notes", e.target.value)} 
-          placeholder="Add status updates, call notes, or phase details here..." 
-        />
+        <textarea style={inputStyle({ height: 60, resize: "vertical" })} value={form.notes || ""} onChange={e=>set("notes", e.target.value)} />
       </Field>
     </Modal>
   );
