@@ -22,30 +22,8 @@ const T = {
 
 // ─── SEED DATA ───────────────────────────────────────────────────────────────
 const SEED_PROJECTS = [
-  { client:"Meridian Energy Corp", engagement:"SUT Reverse Audit FY2023", type:"Reverse Audit", tax:"Sales & Use Tax", states:["TX","LA","OK","NM"], exposure:2840000, refund:1120000, risk:"High", priority:"Critical", status:"In Progress", health:72, leadStaff:"Sarah Chen", assignedTeam:["Sarah Chen","Alex Torres"], due:"2026-12-15", tasks:24, open:9, billingType:"Fixed Fee", period:"2020-2023" },
-  { client:"StellarNet Logistics", engagement:"Multi-State Nexus Study", type:"Nexus Study", tax:"Sales & Use Tax", states:["CA","WA","OR","NV","AZ"], exposure:4200000, refund:0, risk:"Critical", priority:"Critical", status:"Review Phase", health:88, leadStaff:"James Park", assignedTeam:["James Park","Priya Nair"], due:"2026-09-28", tasks:18, open:3, billingType:"Hourly", period:"2021-2024" },
-  { client:"Ozark Resources LLC", engagement:"Severance Tax Refund 2019-2022", type:"Refund Review", tax:"Severance Tax", states:["AR","OK","TX"], exposure:890000, refund:670000, risk:"Medium", priority:"High", status:"Waiting for Client", health:45, leadStaff:"Laura Kim", assignedTeam:["Laura Kim","Marcus Lee"], due:"2026-10-10", tasks:15, open:11, billingType:"Contingency", period:"2019-2022" },
-  { client:"BlueRidge Manufacturing", engagement:"TX Audit Defense 2021", type:"Audit Defense", tax:"Sales & Use Tax", states:["TX"], exposure:3100000, refund:0, risk:"Critical", priority:"Critical", status:"Escalated", health:31, leadStaff:"Sarah Chen", assignedTeam:["Sarah Chen","Alex Torres","Marcus Lee"], due:"2026-06-10", tasks:32, open:18, billingType:"Fixed Fee", period:"2021" },
-  { client:"Pinnacle Retail Group", engagement:"Taxability Research — SaaS", type:"Taxability Research", tax:"Sales & Use Tax", states:["NY","NJ","CT","MA","PA"], exposure:560000, refund:0, risk:"Low", priority:"Medium", status:"Planning", health:95, leadStaff:"James Park", assignedTeam:["James Park","Priya Nair"], due:"2026-11-20", tasks:12, open:10, billingType:"Hourly", period:"2023-2024" },
-  { client:"Cascade Oil & Gas", engagement:"Severance Audit Defense WY", type:"Audit Defense", tax:"Severance Tax", states:["WY","ND"], exposure:7800000, refund:0, risk:"Critical", priority:"Critical", status:"In Progress", health:58, leadStaff:"Laura Kim", assignedTeam:["Laura Kim","Alex Torres"], due:"2026-07-01", tasks:40, open:14, billingType:"Fixed Fee", period:"2018-2022" },
+  { client:"ABC Energy Corp", engagement:"SUT Reverse Audit FY2023", type:"Reverse Audit", tax:"Sales & Use Tax", states:["TX","LA","OK","NM"], exposure:2840000, refund:1120000, risk:"High", priority:"Critical", status:"In Progress", health:72, leadStaff:"Sarah Chen", assignedTeam:["Sarah Chen","Alex Torres"], due:"2026-12-15", tasks:24, open:9, billingType:"Fixed Fee", period:"2020-2023" },
 ];
-const SEED_TASKS = [
-  { title:"Prepare TX Audit IDR Response — Batch 3", project:"BlueRidge Manufacturing", priority:"Critical", status:"In Progress", due:"2026-06-08", assignee:"Alex Torres", hours:8, estimate:12 },
-  { title:"Review Nexus Footprint — CA Economic Nexus", project:"StellarNet Logistics", priority:"High", status:"Review Phase", due:"2026-06-12", assignee:"Priya Nair", hours:5, estimate:6 },
-  { title:"Compile Refund Schedules — AR Severance 2019", project:"Ozark Resources LLC", priority:"High", status:"Waiting for Client", due:"2026-06-20", assignee:"Marcus Lee", hours:3, estimate:10 },
-  { title:"SaaS Taxability Matrix — 5-State Analysis", project:"Pinnacle Retail Group", priority:"Medium", status:"Planning", due:"2026-07-05", assignee:"Priya Nair", hours:0, estimate:16 },
-  { title:"WY Audit — Computational Errors Expert Review", project:"Cascade Oil & Gas", priority:"Critical", status:"In Progress", due:"2026-06-15", assignee:"Alex Torres", hours:14, estimate:20 },
-  { title:"Meridian — Overpayment Schedule Finalization", project:"Meridian Energy Corp", priority:"High", status:"In Progress", due:"2026-06-25", assignee:"Marcus Lee", hours:6, estimate:8 },
-];
-const SEED_TEAM = [
-  { name:"Sarah Chen", role:"Manager", avatar:"SC", color:T.blue, projects:3, utilization:92, expertise:["TX","LA","OK"], status:"active" },
-  { name:"James Park", role:"Senior Manager", avatar:"JP", color:T.violet, projects:2, utilization:78, expertise:["CA","WA","NY"], status:"active" },
-  { name:"Laura Kim", role:"Manager", avatar:"LK", color:T.emerald, projects:2, utilization:88, expertise:["AR","WY","ND"], status:"active" },
-  { name:"Alex Torres", role:"Senior", avatar:"AT", color:T.cyan, projects:4, utilization:97, expertise:["TX","NY","CA"], status:"at-risk" },
-  { name:"Priya Nair", role:"Senior", avatar:"PN", color:T.amber, projects:2, utilization:65, expertise:["CA","NY","NJ"], status:"active" },
-  { name:"Marcus Lee", role:"Staff", avatar:"ML", color:"#E879F9", projects:3, utilization:82, expertise:["TX","AR","OK"], status:"active" },
-];
-
 
 // ─── STATIC CONFIG ────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
@@ -2409,8 +2387,6 @@ export default function App() {
         try {
           await Promise.all([
             seedCollection(COLS.projects, SEED_PROJECTS),
-            seedCollection(COLS.tasks, SEED_TASKS),
-            seedCollection(COLS.team, SEED_TEAM),
           ]);
         } catch (error) {
           console.error("🔥 Failed to seed Firebase data:", error);
