@@ -25,7 +25,7 @@ export const COLS = {
 export const subscribe = (colName, userId, setState) => {
   if (!userId) return () => {}; // Do nothing if not logged in
 
-  // 🟢 NEW: Filter the database to ONLY get this user's data
+  // Filter the database to ONLY get this user's data
   const q = query(
     collection(db, colName), 
     where("userId", "==", userId)
@@ -43,7 +43,7 @@ export const createDoc = async (colName, data) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User must be logged in to create data");
 
-  // 🟢 NEW: Attach the userId to the payload
+  // Attach the userId to the payload
   return addDoc(collection(db, colName), { 
     ...data, 
     userId: user.uid,
@@ -73,7 +73,7 @@ export const seedCollection = async (colName, rows) => {
   const batch = writeBatch(db);
   rows.forEach(row => {
     const ref = doc(collection(db, colName));
-    // 🟢 NEW: Seeded data gets assigned to this specific user
+    // Seeded data gets assigned to this specific user
     batch.set(ref, { ...row, userId: user.uid, createdAt: serverTimestamp() });
   });
   await batch.commit();
