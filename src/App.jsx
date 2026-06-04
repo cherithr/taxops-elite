@@ -514,34 +514,54 @@ const ProjectModal = ({ initial, onClose, teamMembers }) => {
     };
     
     if (form.id) {
+      // ─── UPDATING AN EXISTING PROJECT ───
       await updateDocById(COLS.projects, form.id, data);
-      
       try {
-        // 1. Get all your tasks
         const qTasks = query(collection(db, COLS.tasks), where("userId", "==", auth.currentUser.uid));
         const querySnap = await getDocs(qTasks);
-        
-        // 2. Find tasks matching this exact project client name
         const projectTasks = querySnap.docs.filter(doc => doc.data().project === form.client);
         
-        if (projectTasks.length > 0) {
-          if (TASK_COLS.includes(form.status)) {
-            const batch = writeBatch(db);
-            projectTasks.forEach(taskDoc => {
-              batch.update(taskDoc.ref, { status: form.status, updatedAt: new Date() });
-            });
-            await batch.commit();
-          } else {
-            alert(`⚠️ NOTICE: Project updated, but "${form.status}" is not a valid Task Board column.`);
-          }
-        } else {
-          alert(`👻 GHOST DATA: Project updated, but could not find any tasks linked to "${form.client}".`);
+        if (projectTasks.length > 0 && TASK_COLS.includes(form.status)) {
+          const batch = writeBatch(db);
+          projectTasks.forEach(taskDoc => {
+            batch.update(taskDoc.ref, { status: form.status, due: form.due || taskDoc.data().due, updatedAt: new Date() });
+          });
+          await batch.commit();
         }
       } catch (err) {
-        alert(`🔥 FIREBASE ERROR: ${err.message}`);
+        console.error("Failed to cascade changes to tasks:", err);
       }
     } else {
+      // ─── CREATING A NEW PROJECT (WITH AUTO-TASKS!) ───
       await createDoc(COLS.projects, data);
+      
+      try {
+        // Automatically create default tasks so the Kanban board instantly populates!
+        const batch = writeBatch(db);
+        const defaultTasks = [
+          { title: "Phase 1: Project Kickoff & Planning", estimate: 2 },
+          { title: "Phase 2: Document Request (IDR) & Review", estimate: 8 },
+          { title: "Phase 3: Client Status Update", estimate: 1 }
+        ];
+
+        defaultTasks.forEach(t => {
+          const taskRef = doc(collection(db, COLS.tasks)); // Create a new ID
+          batch.set(taskRef, {
+            ...t,
+            project: form.client,            // AUTO-TAGGED to the new project!
+            status: form.status,             // MATCHES the project's starting status!
+            priority: form.priority,
+            due: form.due || "",
+            assignee: form.leadStaff || "",  // AUTO-ASSIGNED to the lead!
+            hours: 0,
+            userId: auth.currentUser.uid,    // Securely locked to this user
+            createdAt: new Date()
+          });
+        });
+        await batch.commit();
+      } catch (err) {
+        console.error("Failed to auto-generate default tasks:", err);
+      }
     }
     setSaving(false);
     onClose();
